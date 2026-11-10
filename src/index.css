@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply bg-[#1a1215] text-[#f4e8c1] overflow-x-hidden antialiased;
+    font-family: 'Press Start 2P', monospace, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+}
+
+.pixel-art {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+/* Custom retro pixel borders and shadows */
+.pixel-box {
+  box-shadow: 
+    0 -4px 0 0 #2b1b17,
+    0 4px 0 0 #2b1b17,
+    -4px 0 0 0 #2b1b17,
+    4px 0 0 0 #2b1b17;
+}
+
+.pixel-btn {
+  box-shadow: 
+    inset -3px -3px 0 0 rgba(0, 0, 0, 0.35),
+    inset 3px 3px 0 0 rgba(255, 255, 255, 0.35);
+  transition: transform 0.05s ease;
+}
+
+.pixel-btn:active {
+  box-shadow: 
+    inset 3px 3px 0 0 rgba(0, 0, 0, 0.45),
+    inset -2px -2px 0 0 rgba(255, 255, 255, 0.2);
+  transform: translate(2px, 2px);
+}

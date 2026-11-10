@@ -1,0 +1,6 @@
+{
+  "name": "Cat & Bread - Pixel Art Game",
+  "description": "A delightful pixel-art arcade game where a cute customizable cat catches falling French pastries in a cozy bakery kitchen.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
