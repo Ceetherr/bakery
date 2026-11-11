@@ -6,10 +6,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CAT_COLORS, drawPixelCat } from '../sprites';
 import { CatColorConfig, CatColorId } from '../types';
-import { Play, HelpCircle, Trophy, Sparkles } from 'lucide-react';
+import { Play, HelpCircle, Trophy, Sparkles, Edit3 } from 'lucide-react';
 
 interface ColorPickerProps {
   selectedColorId: CatColorId;
+  catName: string;
+  onUpdateCatName: (name: string) => void;
   highScore: number;
   onSelectColor: (id: CatColorId) => void;
   onStartGame: () => void;
@@ -18,6 +20,8 @@ interface ColorPickerProps {
 
 export const ColorPicker: React.FC<ColorPickerProps> = ({
   selectedColorId,
+  catName,
+  onUpdateCatName,
   highScore,
   onSelectColor,
   onStartGame,
@@ -109,10 +113,39 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
           />
         </div>
 
-        {/* Selected Cat Name & Breed */}
-        <div className="mt-2 text-center">
-          <div className="font-bold text-sm text-[#f5c542]">{selectedConfig.name}</div>
-          <div className="text-[10px] text-[#a1887f]">"{selectedConfig.breed}"</div>
+        {/* Cat Name Customization Input */}
+        <div className="mt-3 w-full bg-[#1a0f11] p-2.5 rounded-md border-2 border-[#3e2723] flex flex-col gap-1.5">
+          <div className="flex items-center justify-between text-[9px] text-[#a1887f]">
+            <span className="flex items-center gap-1 font-bold text-[#f5c542]">
+              <Edit3 className="w-3 h-3 text-[#f5c542]" />
+              NAME YOUR CAT:
+            </span>
+            <span className="text-[#8d6e63]">{catName.length}/16</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              value={catName}
+              maxLength={16}
+              onChange={(e) => onUpdateCatName(e.target.value)}
+              placeholder={selectedConfig.name}
+              className="flex-1 bg-[#261819] border border-[#5d4037] focus:border-[#f5c542] focus:ring-1 focus:ring-[#f5c542] rounded px-2.5 py-1.5 text-xs font-bold text-[#f4e8c1] placeholder-[#6d4c41] outline-none tracking-wide"
+            />
+            <button
+              type="button"
+              onClick={() => onUpdateCatName(selectedConfig.name)}
+              title="Reset name to default breed"
+              className="bg-[#3e2723] hover:bg-[#4e342e] text-[#d7ccc8] text-[9px] font-bold px-2 py-1.5 rounded border border-[#5d4037] cursor-pointer whitespace-nowrap transition-colors"
+            >
+              Reset
+            </button>
+          </div>
+
+          <div className="text-[8px] text-[#8d6e63] flex items-center justify-between px-0.5">
+            <span>Breed: <strong className="text-[#bcaaa4]">{selectedConfig.breed}</strong></span>
+            <span>Appears in-game on HUD & pause!</span>
+          </div>
         </div>
 
         {/* 8 Cat Collection Selector in 4x2 grid matching photo */}
