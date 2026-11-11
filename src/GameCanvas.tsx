@@ -23,6 +23,7 @@ interface GameCanvasProps {
   onUpdateStats: (updater: (prev: GameStats) => GameStats) => void;
   onGameOver: (reason: 'lives' | 'misses') => void;
   onCoffeeTimeChange: (timeRemaining: number) => void;
+  onTogglePause: () => void;
 }
 
 export const GameCanvas: React.FC<GameCanvasProps> = ({
@@ -32,6 +33,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   onUpdateStats,
   onGameOver,
   onCoffeeTimeChange,
+  onTogglePause,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -198,6 +200,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   // Keyboard Event Listeners
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Toggle pause on P or Escape
+      if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+        e.preventDefault();
+        onTogglePause();
+        return;
+      }
+
+      // If already paused, pressing any key resumes
+      if (isPaused) {
+        e.preventDefault();
+        onTogglePause();
+        return;
+      }
+
       keysRef.current[e.key] = true;
       keysRef.current[e.code] = true;
     };
@@ -214,10 +230,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, []);
+  }, [isPaused, onTogglePause]);
 
   // Direct Pointer/Touch Dragging on canvas
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isPaused) {
+      onTogglePause();
+      return;
+    }
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -613,19 +634,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.restore();
       }
 
-      // 6. Draw Pause Overlay if Paused
+      // 6. Draw Subtle Pause Overlay if Paused (PauseModal handles full UI & controls)
       if (isPaused) {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
         ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-        ctx.fillStyle = '#f5c542';
-        ctx.font = '16px "Press Start 2P", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('PAUSED', GAME_WIDTH / 2, GAME_HEIGHT / 2);
-
-        ctx.fillStyle = '#f4e8c1';
-        ctx.font = '9px "Press Start 2P", monospace';
-        ctx.fillText('Press Pause button to resume', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 28);
       }
 
       ctx.restore();
