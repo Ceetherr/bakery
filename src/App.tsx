@@ -11,6 +11,7 @@ import { HUD } from './components/HUD';
 import { ColorPicker } from './components/ColorPicker';
 import { GameCanvas } from './GameCanvas';
 import { GameOverModal } from './components/GameOverModal';
+import { PauseModal } from './components/PauseModal';
 import { HowToPlayModal } from './components/HowToPlayModal';
 import { HelpCircle } from 'lucide-react';
 
@@ -36,6 +37,7 @@ const INITIAL_STATS: GameStats = {
 export default function App() {
   const [screen, setScreen] = useState<GameScreen>('MENU');
   const [selectedColorId, setSelectedColorId] = useState<CatColorId>('orange');
+  const [catName, setCatName] = useState<string>('Marmalade');
   const [stats, setStats] = useState<GameStats>(INITIAL_STATS);
   const [isPaused, setIsPaused] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -54,6 +56,11 @@ export default function App() {
         setSelectedColorId(savedColor);
       }
 
+      const savedName = localStorage.getItem('cat_bread_cat_name');
+      if (savedName && savedName.trim()) {
+        setCatName(savedName.trim());
+      }
+
       const savedHigh = localStorage.getItem('cat_bread_best_score');
       if (savedHigh) {
         const parsed = parseInt(savedHigh, 10);
@@ -68,11 +75,33 @@ export default function App() {
     }
   }, []);
 
-  // Save cat color selection
+  // Save cat color selection and update default name if not customized
   const handleSelectColor = (id: CatColorId) => {
     setSelectedColorId(id);
     try {
       localStorage.setItem('cat_bread_cat_color', id);
+    } catch {
+      // ignore
+    }
+
+    const newCat = CAT_COLORS.find((c) => c.id === id);
+    // If current cat name matches one of the default cat names or is blank, auto-suggest the new cat's name
+    const isDefaultName = CAT_COLORS.some((c) => c.name.toLowerCase() === catName.toLowerCase());
+    if (newCat && (!catName.trim() || isDefaultName)) {
+      setCatName(newCat.name);
+      try {
+        localStorage.setItem('cat_bread_cat_name', newCat.name);
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  // Update cat custom name
+  const handleUpdateCatName = (name: string) => {
+    setCatName(name);
+    try {
+      localStorage.setItem('cat_bread_cat_name', name);
     } catch {
       // ignore
     }
@@ -164,6 +193,8 @@ export default function App() {
         {screen === 'MENU' && (
           <ColorPicker
             selectedColorId={selectedColorId}
+            catName={catName}
+            onUpdateCatName={handleUpdateCatName}
             highScore={stats.highScore}
             onSelectColor={handleSelectColor}
             onStartGame={handleStartGame}
@@ -176,6 +207,7 @@ export default function App() {
             <div className="w-full max-w-[480px]">
               <HUD
                 stats={stats}
+                catName={catName}
                 isMuted={isMuted}
                 isPaused={isPaused}
                 coffeeTimer={coffeeTimer}
@@ -191,15 +223,37 @@ export default function App() {
               onUpdateStats={setStats}
               onGameOver={handleGameOver}
               onCoffeeTimeChange={setCoffeeTimer}
+              onTogglePause={handleTogglePause}
             />
           </div>
         )}
       </main>
 
+      {/* Pause Modal with Resume & Quit to Main Menu */}
+      {isPaused && screen === 'PLAYING' && (
+        <PauseModal
+          catName={catName}
+          score={stats.score}
+          highScore={stats.highScore}
+          lives={stats.lives}
+          maxLives={stats.maxLives}
+          misses={stats.misses}
+          maxMisses={stats.maxMisses}
+          isMuted={isMuted}
+          onToggleMute={handleToggleMute}
+          onResume={() => setIsPaused(false)}
+          onQuit={() => {
+            setIsPaused(false);
+            setScreen('MENU');
+          }}
+        />
+      )}
+
       {/* Modals */}
       {screen === 'GAMEOVER' && (
         <GameOverModal
           stats={stats}
+          catName={catName}
           isNewRecord={isNewRecord}
           reason={gameOverReason}
           onPlayAgain={handlePlayAgain}
