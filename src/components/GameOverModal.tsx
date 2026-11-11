@@ -9,6 +9,7 @@ import { RotateCcw, Palette, Trophy, Sparkles, AlertCircle } from 'lucide-react'
 
 interface GameOverModalProps {
   stats: GameStats;
+  catName?: string;
   isNewRecord: boolean;
   reason: 'lives' | 'misses';
   onPlayAgain: () => void;
@@ -17,6 +18,7 @@ interface GameOverModalProps {
 
 export const GameOverModal: React.FC<GameOverModalProps> = ({
   stats,
+  catName,
   isNewRecord,
   reason,
   onPlayAgain,
@@ -28,7 +30,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
         {/* Banner */}
         <div className="mb-3">
           <div className="text-[10px] text-[#e53935] tracking-widest font-bold">
-            SHIFT OVER!
+            {catName ? `${catName.toUpperCase()}'S SHIFT OVER!` : 'BAKERY SHIFT OVER!'}
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-[#e63946] drop-shadow-[0_2px_0_#4a151b]">
             GAME OVER

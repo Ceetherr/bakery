@@ -9,6 +9,7 @@ import { GameStats } from '../types';
 
 interface HUDProps {
   stats: GameStats;
+  catName?: string;
   isMuted: boolean;
   isPaused: boolean;
   coffeeTimer: number; // seconds remaining
@@ -18,6 +19,7 @@ interface HUDProps {
 
 export const HUD: React.FC<HUDProps> = ({
   stats,
+  catName,
   isMuted,
   isPaused,
   coffeeTimer,
@@ -28,8 +30,17 @@ export const HUD: React.FC<HUDProps> = ({
     <div className="w-full flex flex-col gap-2 select-none">
       {/* Top Bar Stats */}
       <div className="flex items-center justify-between bg-[#261819] border-2 border-[#54342a] px-3 py-2 rounded shadow-md text-xs sm:text-sm">
-        {/* Score & Best */}
-        <div className="flex items-center gap-3 sm:gap-6">
+        {/* Cat Name, Score & Best */}
+        <div className="flex items-center gap-2 sm:gap-4">
+          {catName && (
+            <div className="flex flex-col border-r border-[#3e2723] pr-2 sm:pr-3 max-w-[85px] sm:max-w-[120px]">
+              <span className="text-[8px] sm:text-[9px] text-[#a1887f] tracking-wider uppercase truncate">BAKER</span>
+              <span className="font-bold text-[#f4e8c1] text-[10px] sm:text-xs truncate flex items-center gap-1" title={catName}>
+                <span>🐾</span> {catName}
+              </span>
+            </div>
+          )}
+
           <div className="flex flex-col">
             <span className="text-[9px] sm:text-[10px] text-[#bcaaa4] tracking-wider">SCORE</span>
             <span className="font-bold text-[#f5c542] text-sm sm:text-base tabular-nums">
