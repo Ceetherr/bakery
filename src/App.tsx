@@ -3,267 +3,139 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { CatColorId, GameScreen, GameStats } from './types';
-import { CAT_COLORS } from './sprites';
+import React, { useState, useEffect } from 'react';
 import { sound } from './audio';
-import { HUD } from './components/HUD';
-import { ColorPicker } from './components/ColorPicker';
-import { GameCanvas } from './GameCanvas';
-import { GameOverModal } from './components/GameOverModal';
-import { PauseModal } from './components/PauseModal';
-import { HowToPlayModal } from './components/HowToPlayModal';
-import { HelpCircle } from 'lucide-react';
+import { BreadShiftGame } from './breadShift/BreadShiftGame';
+import { CatArcadeSection } from './components/CatArcadeSection';
+import { Volume2, VolumeX } from 'lucide-react';
 
-const INITIAL_STATS: GameStats = {
-  score: 0,
-  highScore: 0,
-  lives: 3,
-  maxLives: 3,
-  misses: 0,
-  maxMisses: 5,
-  breadsEaten: {
-    toast: 0,
-    baguette: 0,
-    croissant: 0,
-    golden: 0,
-  },
-  powerUpsCollected: {
-    milk: 0,
-    coffee: 0,
-  },
-};
+type AppMode = 'BREAD_SHIFT' | 'CAT_ARCADE';
 
 export default function App() {
-  const [screen, setScreen] = useState<GameScreen>('MENU');
-  const [selectedColorId, setSelectedColorId] = useState<CatColorId>('orange');
-  const [catName, setCatName] = useState<string>('Marmalade');
-  const [stats, setStats] = useState<GameStats>(INITIAL_STATS);
-  const [isPaused, setIsPaused] = useState(false);
+  const [mode, setMode] = useState<AppMode>('BREAD_SHIFT');
   const [isMuted, setIsMuted] = useState(false);
-  const [gameOverReason, setGameOverReason] = useState<'lives' | 'misses'>('lives');
-  const [isNewRecord, setIsNewRecord] = useState(false);
-  const [coffeeTimer, setCoffeeTimer] = useState(0);
+  const [recipesSignal, setRecipesSignal] = useState(0);
+  const [shopSignal, setShopSignal] = useState(0);
 
-  // Modals
-  const [showHowToPlay, setShowHowToPlay] = useState(false);
-
-  // Load saved preferences & high score from localStorage
   useEffect(() => {
-    try {
-      const savedColor = localStorage.getItem('cat_bread_cat_color') as CatColorId | null;
-      if (savedColor && CAT_COLORS.some((c) => c.id === savedColor)) {
-        setSelectedColorId(savedColor);
-      }
-
-      const savedName = localStorage.getItem('cat_bread_cat_name');
-      if (savedName && savedName.trim()) {
-        setCatName(savedName.trim());
-      }
-
-      const savedHigh = localStorage.getItem('cat_bread_best_score');
-      if (savedHigh) {
-        const parsed = parseInt(savedHigh, 10);
-        if (!isNaN(parsed)) {
-          setStats((prev) => ({ ...prev, highScore: parsed }));
-        }
-      }
-
-      setIsMuted(sound.getMuted());
-    } catch {
-      // ignore
-    }
+    setIsMuted(sound.getMuted());
   }, []);
 
-  // Save cat color selection and update default name if not customized
-  const handleSelectColor = (id: CatColorId) => {
-    setSelectedColorId(id);
-    try {
-      localStorage.setItem('cat_bread_cat_color', id);
-    } catch {
-      // ignore
-    }
-
-    const newCat = CAT_COLORS.find((c) => c.id === id);
-    // If current cat name matches one of the default cat names or is blank, auto-suggest the new cat's name
-    const isDefaultName = CAT_COLORS.some((c) => c.name.toLowerCase() === catName.toLowerCase());
-    if (newCat && (!catName.trim() || isDefaultName)) {
-      setCatName(newCat.name);
-      try {
-        localStorage.setItem('cat_bread_cat_name', newCat.name);
-      } catch {
-        // ignore
-      }
-    }
-  };
-
-  // Update cat custom name
-  const handleUpdateCatName = (name: string) => {
-    setCatName(name);
-    try {
-      localStorage.setItem('cat_bread_cat_name', name);
-    } catch {
-      // ignore
-    }
-  };
-
-  // Start game shift
-  const handleStartGame = () => {
-    // Unlock and start music on user gesture
-    sound.initContext();
-    sound.startMusic();
-
-    setStats((prev) => ({
-      ...INITIAL_STATS,
-      highScore: prev.highScore,
-    }));
-    setIsNewRecord(false);
-    setIsPaused(false);
-    setCoffeeTimer(0);
-    setScreen('PLAYING');
-  };
-
-  // Game over trigger
-  const handleGameOver = useCallback((reason: 'lives' | 'misses') => {
-    setGameOverReason(reason);
-    setScreen('GAMEOVER');
-
-    setStats((current) => {
-      if (current.score > current.highScore) {
-        setIsNewRecord(true);
-        try {
-          localStorage.setItem('cat_bread_best_score', String(current.score));
-        } catch {
-          // ignore
-        }
-        return { ...current, highScore: current.score };
-      }
-      return current;
-    });
-  }, []);
-
-  // Restart immediately with same cat
-  const handlePlayAgain = () => {
-    handleStartGame();
-  };
-
-  // Return to color selection screen
-  const handleChangeCat = () => {
-    setScreen('MENU');
-  };
-
-  // Toggle Mute
   const handleToggleMute = () => {
     const muted = sound.toggleMute();
     setIsMuted(muted);
   };
 
-  // Toggle Pause
-  const handleTogglePause = () => {
-    setIsPaused((prev) => !prev);
+  const handleSwitchMode = (nextMode: AppMode) => {
+    if (nextMode === mode) return;
+    sound.stopMusic();
+    sound.playButtonClick();
+    setMode(nextMode);
   };
 
-  const selectedCatConfig =
-    CAT_COLORS.find((c) => c.id === selectedColorId) || CAT_COLORS[0];
-
   return (
-    <div className="min-h-screen bg-[#140c0e] text-[#f4e8c1] flex flex-col justify-between p-2 sm:p-4 select-none">
-      {/* Top Header Bar */}
-      <header className="max-w-2xl w-full mx-auto flex items-center justify-between pb-2 border-b border-[#3e2723]">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🐱</span>
-          <span className="text-xs sm:text-sm font-bold text-[#f5c542] tracking-wider">
-            CAT & BREAD
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
+    <div className="min-h-screen bg-[#160f0e] text-[#f4e8c1] flex flex-col select-none overflow-x-hidden">
+      {/* 3-Zone Cozy Bakery Top Bar */}
+      <header className="bg-[#1e1310] border-b-2 border-[#4d3023]">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 h-14 flex items-center justify-between gap-3 sm:gap-8">
+          {/* Zone 1: Single-line Brand Wordmark */}
           <button
-            onClick={() => setShowHowToPlay(true)}
-            className="flex items-center gap-1 text-[10px] bg-[#261819] hover:bg-[#3e2723] px-2.5 py-1.5 rounded border border-[#54342a] text-[#d7ccc8] transition-colors cursor-pointer"
+            onClick={() => handleSwitchMode('BREAD_SHIFT')}
+            className="font-pixel-display text-[11px] sm:text-sm text-[#f5c542] whitespace-nowrap shrink-0 cursor-pointer hover:brightness-110 transition-all"
           >
-            <HelpCircle className="w-3.5 h-3.5 text-[#f5c542]" />
-            <span className="hidden sm:inline">How To Play</span>
+            <span className="sm:hidden">BARBAR</span>
+            <span className="hidden sm:inline">BARBAR BAKERY</span>
           </button>
+
+          {/* Zone 2: Clean Single-line Navigation Links */}
+          <nav className="flex items-center gap-4 sm:gap-6 text-xs font-pixel-ui">
+            <button
+              onClick={() => handleSwitchMode('BREAD_SHIFT')}
+              className={`whitespace-nowrap shrink-0 py-1.5 border-b-2 transition-colors cursor-pointer ${
+                mode === 'BREAD_SHIFT'
+                  ? 'border-[#f5c542] text-[#fbf3de] font-bold'
+                  : 'border-transparent text-[#bba182] hover:text-[#fbf3de]'
+              }`}
+            >
+              <span className="sm:hidden">Bakery</span>
+              <span className="hidden sm:inline">Bread Shift</span>
+            </button>
+
+            <button
+              onClick={() => handleSwitchMode('CAT_ARCADE')}
+              className={`whitespace-nowrap shrink-0 py-1.5 border-b-2 transition-colors cursor-pointer ${
+                mode === 'CAT_ARCADE'
+                  ? 'border-[#f5c542] text-[#fbf3de] font-bold'
+                  : 'border-transparent text-[#bba182] hover:text-[#fbf3de]'
+              }`}
+            >
+              <span className="sm:hidden">Cat Game</span>
+              <span className="hidden sm:inline">Cat Arcade</span>
+            </button>
+
+            {mode === 'BREAD_SHIFT' && (
+              <>
+                <button
+                  onClick={() => {
+                    sound.playButtonClick();
+                    setRecipesSignal((n) => n + 1);
+                  }}
+                  className="hidden md:inline-block whitespace-nowrap shrink-0 py-1 border-b-2 border-transparent text-[#bba182] hover:text-[#fbf3de] transition-colors cursor-pointer"
+                >
+                  Recipes
+                </button>
+                <button
+                  onClick={() => {
+                    sound.playButtonClick();
+                    setShopSignal((n) => n + 1);
+                  }}
+                  className="hidden md:inline-block whitespace-nowrap shrink-0 py-1 border-b-2 border-transparent text-[#bba182] hover:text-[#fbf3de] transition-colors cursor-pointer"
+                >
+                  Shop
+                </button>
+              </>
+            )}
+          </nav>
+
+          {/* Zone 3: Single Primary Audio Action */}
+          <div className="shrink-0">
+            <button
+              onClick={handleToggleMute}
+              className="min-h-[38px] px-2.5 sm:px-3 py-1.5 bg-[#3a251c] hover:bg-[#4d3227] border border-[#6b4635] rounded text-xs font-pixel-ui text-[#f4e8c1] inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer pixel-btn"
+              aria-label={isMuted ? 'Unmute Audio' : 'Mute Audio'}
+            >
+              {isMuted ? (
+                <>
+                  <VolumeX className="w-4 h-4 text-[#e37266]" />
+                  <span className="hidden sm:inline">Muted</span>
+                </>
+              ) : (
+                <>
+                  <Volume2 className="w-4 h-4 text-[#69c79b]" />
+                  <span className="hidden sm:inline">Sound On</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col items-center justify-center max-w-2xl w-full mx-auto my-2">
-        {screen === 'MENU' && (
-          <ColorPicker
-            selectedColorId={selectedColorId}
-            catName={catName}
-            onUpdateCatName={handleUpdateCatName}
-            highScore={stats.highScore}
-            onSelectColor={handleSelectColor}
-            onStartGame={handleStartGame}
-            onOpenHowToPlay={() => setShowHowToPlay(true)}
+      <main className="flex-1 flex flex-col justify-start py-2 sm:py-4">
+        {mode === 'BREAD_SHIFT' ? (
+          <BreadShiftGame
+            onOpenSideGame={() => handleSwitchMode('CAT_ARCADE')}
+            externalOpenRecipesSignal={recipesSignal}
+            externalOpenShopSignal={shopSignal}
+          />
+        ) : (
+          <CatArcadeSection
+            isMuted={isMuted}
+            onToggleMute={handleToggleMute}
+            onBackToBakery={() => handleSwitchMode('BREAD_SHIFT')}
           />
         )}
-
-        {(screen === 'PLAYING' || screen === 'GAMEOVER') && (
-          <div className="w-full flex flex-col items-center gap-2">
-            <div className="w-full max-w-[480px]">
-              <HUD
-                stats={stats}
-                catName={catName}
-                isMuted={isMuted}
-                isPaused={isPaused}
-                coffeeTimer={coffeeTimer}
-                onToggleMute={handleToggleMute}
-                onTogglePause={handleTogglePause}
-              />
-            </div>
-
-            <GameCanvas
-              catConfig={selectedCatConfig}
-              stats={stats}
-              isPaused={isPaused}
-              onUpdateStats={setStats}
-              onGameOver={handleGameOver}
-              onCoffeeTimeChange={setCoffeeTimer}
-              onTogglePause={handleTogglePause}
-            />
-          </div>
-        )}
       </main>
-
-      {/* Pause Modal with Resume & Quit to Main Menu */}
-      {isPaused && screen === 'PLAYING' && (
-        <PauseModal
-          catName={catName}
-          score={stats.score}
-          highScore={stats.highScore}
-          lives={stats.lives}
-          maxLives={stats.maxLives}
-          misses={stats.misses}
-          maxMisses={stats.maxMisses}
-          isMuted={isMuted}
-          onToggleMute={handleToggleMute}
-          onResume={() => setIsPaused(false)}
-          onQuit={() => {
-            setIsPaused(false);
-            setScreen('MENU');
-          }}
-        />
-      )}
-
-      {/* Modals */}
-      {screen === 'GAMEOVER' && (
-        <GameOverModal
-          stats={stats}
-          catName={catName}
-          isNewRecord={isNewRecord}
-          reason={gameOverReason}
-          onPlayAgain={handlePlayAgain}
-          onChangeCat={handleChangeCat}
-        />
-      )}
-
-      {showHowToPlay && (
-        <HowToPlayModal onClose={() => setShowHowToPlay(false)} />
-      )}
     </div>
   );
 }
