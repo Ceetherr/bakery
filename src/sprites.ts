@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CatColorConfig, CatColorId, ItemType } from './types';
+import { CatColorConfig, ItemType } from './types';
 
 // The 8 pixel cats from the reference collection with exact cropped sprites
 export const CAT_COLORS: CatColorConfig[] = [

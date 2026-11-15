@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { BAKER_CUSTOMIZATION_OPTIONS } from '../data';
 import { BakerLookConfig } from '../types';
 import { BakerAvatarSprite } from '../PixelArt';
+import { CUSTOMIZER_TEXT, FA_APRON_COLORS, Language, fmtNum } from '../i18n';
 import { X, Shuffle, Check, User, Smile, Scissors, Crown, Shirt, Sparkles } from 'lucide-react';
 import { sound } from '../../audio';
 
@@ -14,6 +15,7 @@ interface BakerCustomizeModalProps {
   look: BakerLookConfig;
   onChange: (nextLook: BakerLookConfig) => void;
   onClose: () => void;
+  lang?: Language;
 }
 
 type CustomTab = 'identity' | 'skin' | 'hair' | 'hat' | 'apron' | 'detail';
@@ -22,8 +24,11 @@ export const BakerCustomizeModal: React.FC<BakerCustomizeModalProps> = ({
   look,
   onChange,
   onClose,
+  lang = 'en',
 }) => {
   const [activeTab, setActiveTab] = useState<CustomTab>('identity');
+  const isFa = lang === 'fa';
+  const T = CUSTOMIZER_TEXT[lang];
 
   const handleRandomize = () => {
     sound.playButtonClick();
@@ -41,12 +46,12 @@ export const BakerCustomizeModal: React.FC<BakerCustomizeModalProps> = ({
   };
 
   const tabs: { id: CustomTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'identity', label: 'Name', icon: <User className="w-3.5 h-3.5" /> },
-    { id: 'skin', label: 'Skin', icon: <Sparkles className="w-3.5 h-3.5" /> },
-    { id: 'hair', label: 'Hair', icon: <Scissors className="w-3.5 h-3.5" /> },
-    { id: 'hat', label: 'Hat', icon: <Crown className="w-3.5 h-3.5" /> },
-    { id: 'apron', label: 'Apron', icon: <Shirt className="w-3.5 h-3.5" /> },
-    { id: 'detail', label: 'Details', icon: <Smile className="w-3.5 h-3.5" /> },
+    { id: 'identity', label: T.tabs.identity, icon: <User className="w-3.5 h-3.5" /> },
+    { id: 'skin', label: T.tabs.skin, icon: <Sparkles className="w-3.5 h-3.5" /> },
+    { id: 'hair', label: T.tabs.hair, icon: <Scissors className="w-3.5 h-3.5" /> },
+    { id: 'hat', label: T.tabs.hat, icon: <Crown className="w-3.5 h-3.5" /> },
+    { id: 'apron', label: T.tabs.apron, icon: <Shirt className="w-3.5 h-3.5" /> },
+    { id: 'detail', label: T.tabs.detail, icon: <Smile className="w-3.5 h-3.5" /> },
   ];
 
   return (
@@ -56,16 +61,19 @@ export const BakerCustomizeModal: React.FC<BakerCustomizeModalProps> = ({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-[#251815] border-4 border-[#5c3a28] rounded-md max-w-lg w-full flex flex-col pixel-box text-[#f4e8c1]">
+      <div
+        className={`bg-[#251815] border-4 border-[#5c3a28] rounded-md max-w-lg w-full flex flex-col pixel-box text-[#f4e8c1] ${
+          isFa ? 'font-vazir text-right rtl' : ''
+        }`}
+        dir={isFa ? 'rtl' : 'ltr'}
+      >
         {/* Header */}
         <div className="px-4 py-3 bg-[#1c120f] border-b-2 border-[#422a1e] flex items-center justify-between">
-          <h2 className="font-pixel-display text-xs text-[#f5c542]">
-            CUSTOMIZE YOUR BAKER
-          </h2>
+          <h2 className="font-pixel-display text-xs text-[#f5c542]">{T.title}</h2>
           <button
             onClick={onClose}
             className="p-2 bg-[#3a241b] hover:bg-[#4e3125] border border-[#6e4635] rounded text-[#f4e8c1] cursor-pointer"
-            aria-label="Close Customizer"
+            aria-label={T.saveBtn}
           >
             <X className="w-4 h-4" />
           </button>
@@ -80,9 +88,11 @@ export const BakerCustomizeModal: React.FC<BakerCustomizeModalProps> = ({
           <div className="w-full flex-1 space-y-1.5">
             <div className="flex items-center justify-between text-[11px]">
               <label htmlFor="baker-name-input" className="font-bold text-[#f5c542]">
-                BAKER NAME
+                {T.bakerName}
               </label>
-              <span className="text-[#8d6e63] tabular-nums">{look.name.length}/16</span>
+              <span className="text-[#8d6e63] tabular-nums">
+                {fmtNum(look.name.length, lang)}/{fmtNum(16, lang)}
+              </span>
             </div>
             <input
               id="baker-name-input"
@@ -90,7 +100,7 @@ export const BakerCustomizeModal: React.FC<BakerCustomizeModalProps> = ({
               maxLength={16}
               value={look.name}
               onChange={(e) => onChange({ ...look, name: e.target.value })}
-              placeholder="Ostad Baker"
+              placeholder={T.placeholder}
               className="w-full bg-[#261815] border-2 border-[#5c3a28] focus:border-[#f5c542] rounded px-3 py-1.5 text-sm font-bold text-[#fbf3de] outline-none"
             />
           </div>
@@ -107,7 +117,7 @@ export const BakerCustomizeModal: React.FC<BakerCustomizeModalProps> = ({
                   sound.playButtonClick();
                   setActiveTab(tab.id);
                 }}
-                className={`min-h-[44px] py-2 px-1 text-center cursor-pointer flex flex-col items-center justify-center gap-0.5 border-r border-[#2e1c16] last:border-r-0 transition-colors ${
+                className={`min-h-[44px] py-2 px-1 text-center cursor-pointer flex flex-col items-center justify-center gap-0.5 border-e border-[#2e1c16] last:border-e-0 transition-colors ${
                   active
                     ? 'bg-[#e59f2c] text-[#1c110c] font-bold'
                     : 'text-[#cbb596] hover:bg-[#251815] hover:text-white'
@@ -120,27 +130,25 @@ export const BakerCustomizeModal: React.FC<BakerCustomizeModalProps> = ({
           })}
         </div>
 
-        {/* Tab Body Content (No scrolling needed, perfectly sized per tab!) */}
+        {/* Tab Body Content */}
         <div className="p-4 min-h-[220px] max-h-[320px] overflow-y-auto space-y-4">
           {activeTab === 'identity' && (
             <div className="space-y-4 py-2">
-              <div className="text-xs text-[#d9c8ac] leading-relaxed">
-                Choose your master baker&apos;s name or roll the dice for a random look!
-              </div>
+              <div className="text-xs text-[#d9c8ac] leading-relaxed">{T.identityHint}</div>
               <button
                 type="button"
                 onClick={handleRandomize}
                 className="min-h-[46px] w-full inline-flex items-center justify-center gap-2 text-xs font-bold bg-[#3a251c] hover:bg-[#4d3227] border-2 border-[#6b4635] px-4 py-2.5 rounded text-[#f4e8c1] cursor-pointer pixel-btn"
               >
                 <Shuffle className="w-4 h-4 text-[#f5c542]" />
-                <span>Randomize Entire Look &amp; Outfit</span>
+                <span>{T.randomize}</span>
               </button>
             </div>
           )}
 
           {activeTab === 'skin' && (
             <div className="space-y-3 py-1">
-              <div className="text-xs font-bold text-[#d9c8ac]">SELECT SKIN TONE</div>
+              <div className="text-xs font-bold text-[#d9c8ac]">{T.selectSkin}</div>
               <div className="flex flex-wrap gap-3">
                 {BAKER_CUSTOMIZATION_OPTIONS.skinColors.map((hex) => (
                   <button
@@ -156,7 +164,7 @@ export const BakerCustomizeModal: React.FC<BakerCustomizeModalProps> = ({
                         : 'border-[#5c3a28]'
                     }`}
                     style={{ backgroundColor: hex }}
-                    aria-label={`Skin tone ${hex}`}
+                    aria-label={`${T.selectSkin} ${hex}`}
                   />
                 ))}
               </div>
@@ -165,7 +173,7 @@ export const BakerCustomizeModal: React.FC<BakerCustomizeModalProps> = ({
 
           {activeTab === 'hair' && (
             <div className="space-y-3.5 py-1">
-              <div className="text-xs font-bold text-[#d9c8ac]">HAIR STYLE</div>
+              <div className="text-xs font-bold text-[#d9c8ac]">{T.hairStyle}</div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {BAKER_CUSTOMIZATION_OPTIONS.hairStyles.map((st) => (
                   <button
@@ -181,12 +189,12 @@ export const BakerCustomizeModal: React.FC<BakerCustomizeModalProps> = ({
                         : 'bg-[#1b110f] border-[#4a3024] text-[#f4e8c1]'
                     }`}
                   >
-                    {st.label}
+                    {T.hairStyles[st.id] || st.label}
                   </button>
                 ))}
               </div>
 
-              <div className="text-xs font-bold text-[#d9c8ac] pt-1">HAIR COLOR</div>
+              <div className="text-xs font-bold text-[#d9c8ac] pt-1">{T.hairColor}</div>
               <div className="flex flex-wrap gap-2.5">
                 {BAKER_CUSTOMIZATION_OPTIONS.hairColors.map((hex) => (
                   <button
@@ -202,7 +210,7 @@ export const BakerCustomizeModal: React.FC<BakerCustomizeModalProps> = ({
                         : 'border-[#5c3a28]'
                     }`}
                     style={{ backgroundColor: hex }}
-                    aria-label={`Hair color ${hex}`}
+                    aria-label={`${T.hairColor} ${hex}`}
                   />
                 ))}
               </div>
@@ -211,7 +219,7 @@ export const BakerCustomizeModal: React.FC<BakerCustomizeModalProps> = ({
 
           {activeTab === 'hat' && (
             <div className="space-y-3 py-1">
-              <div className="text-xs font-bold text-[#d9c8ac]">SELECT HEADWEAR</div>
+              <div className="text-xs font-bold text-[#d9c8ac]">{T.selectHat}</div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {BAKER_CUSTOMIZATION_OPTIONS.hats.map((h) => (
                   <button
@@ -227,7 +235,7 @@ export const BakerCustomizeModal: React.FC<BakerCustomizeModalProps> = ({
                         : 'bg-[#1b110f] border-[#4a3024] text-[#f4e8c1]'
                     }`}
                   >
-                    {h.label}
+                    {T.hats[h.id] || h.label}
                   </button>
                 ))}
               </div>
@@ -236,7 +244,7 @@ export const BakerCustomizeModal: React.FC<BakerCustomizeModalProps> = ({
 
           {activeTab === 'apron' && (
             <div className="space-y-3 py-1">
-              <div className="text-xs font-bold text-[#d9c8ac]">SELECT APRON COLOR</div>
+              <div className="text-xs font-bold text-[#d9c8ac]">{T.selectApron}</div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {BAKER_CUSTOMIZATION_OPTIONS.apronColors.map((ap) => (
                   <button
@@ -256,7 +264,7 @@ export const BakerCustomizeModal: React.FC<BakerCustomizeModalProps> = ({
                       color: ap.id === '#dfd3bc' || ap.id === '#e59f2c' ? '#1c110c' : '#ffffff',
                     }}
                   >
-                    {ap.label}
+                    {isFa ? FA_APRON_COLORS[ap.id] || ap.label : ap.label}
                   </button>
                 ))}
               </div>
@@ -265,7 +273,7 @@ export const BakerCustomizeModal: React.FC<BakerCustomizeModalProps> = ({
 
           {activeTab === 'detail' && (
             <div className="space-y-3 py-1">
-              <div className="text-xs font-bold text-[#d9c8ac]">FACIAL DETAIL / ACCESSORY</div>
+              <div className="text-xs font-bold text-[#d9c8ac]">{T.facialDetail}</div>
               <div className="grid grid-cols-2 gap-2">
                 {BAKER_CUSTOMIZATION_OPTIONS.details.map((d) => (
                   <button
@@ -281,7 +289,7 @@ export const BakerCustomizeModal: React.FC<BakerCustomizeModalProps> = ({
                         : 'bg-[#1b110f] border-[#4a3024] text-[#f4e8c1]'
                     }`}
                   >
-                    {d.label}
+                    {T.details[d.id] || d.label}
                   </button>
                 ))}
               </div>
@@ -299,7 +307,7 @@ export const BakerCustomizeModal: React.FC<BakerCustomizeModalProps> = ({
             className="w-full sm:w-auto px-6 py-3 bg-[#3b8c84] hover:bg-[#46a39a] text-white font-pixel-ui font-bold text-xs rounded border-2 border-[#225954] pixel-btn flex items-center justify-center gap-2 cursor-pointer"
           >
             <Check className="w-4 h-4" />
-            <span>Save Look &amp; Name</span>
+            <span>{T.saveBtn}</span>
           </button>
         </div>
       </div>

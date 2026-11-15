@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { CAT_COLORS, drawPixelCat } from '../sprites';
-import { CatColorConfig, CatColorId } from '../types';
+import { CatColorId } from '../types';
+import { CAT_UI_TEXT, FA_CAT_COLORS, Language, fmtNum } from '../breadShift/i18n';
 import { Play, HelpCircle, Trophy, Edit3 } from 'lucide-react';
 
 interface ColorPickerProps {
@@ -16,6 +17,7 @@ interface ColorPickerProps {
   onSelectColor: (id: CatColorId) => void;
   onStartGame: () => void;
   onOpenHowToPlay: () => void;
+  lang?: Language;
 }
 
 export const ColorPicker: React.FC<ColorPickerProps> = ({
@@ -26,19 +28,23 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
   onSelectColor,
   onStartGame,
   onOpenHowToPlay,
+  lang = 'en',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [animTimer, setAnimTimer] = useState<number>(0);
   const selectedConfig = CAT_COLORS.find((c) => c.id === selectedColorId) || CAT_COLORS[0];
+  const isFa = lang === 'fa';
+  const T = CAT_UI_TEXT[lang];
+  const selectedFa = FA_CAT_COLORS[selectedConfig.id];
+  const selectedDisplayName = isFa ? selectedFa?.name || selectedConfig.name : selectedConfig.name;
+  const selectedDisplayBreed = isFa ? selectedFa?.breed || selectedConfig.breed : selectedConfig.breed;
 
   // Animation loop for live cat preview
   useEffect(() => {
     let animId: number;
-    let start = performance.now();
+    const start = performance.now();
 
     const loop = (now: number) => {
       const elapsed = (now - start) / 1000;
-      setAnimTimer(elapsed);
 
       const canvas = canvasRef.current;
       if (canvas) {
@@ -47,20 +53,16 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
           ctx.imageSmoothingEnabled = false;
           ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-          // Draw warm pedestal platform
           const cx = canvas.width / 2;
           const cy = canvas.height / 2 + 18;
 
-          // Wooden stool top
           ctx.fillStyle = '#8B5A2B';
           ctx.fillRect(cx - 52, cy + 14, 104, 10);
           ctx.fillStyle = '#D4A373';
           ctx.fillRect(cx - 52, cy + 12, 104, 2);
-          // Cushion
           ctx.fillStyle = '#C0392B';
           ctx.fillRect(cx - 46, cy + 6, 92, 6);
 
-          // Draw live cat with animated wagging tail and blinking
           drawPixelCat(ctx, cx, cy + 6, selectedConfig, 'idle', 'right', elapsed, 1.2);
         }
       }
@@ -73,35 +75,40 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
   }, [selectedConfig]);
 
   return (
-    <div className="w-full max-w-md mx-auto flex flex-col items-center gap-4 p-4 select-none">
+    <div
+      className={`w-full max-w-md mx-auto flex flex-col items-center gap-4 p-4 select-none ${
+        isFa ? 'font-vazir rtl' : ''
+      }`}
+      dir={isFa ? 'rtl' : 'ltr'}
+    >
       {/* Title Lockup */}
       <div className="text-center space-y-1.5">
         <div className="text-[11px] font-pixel-ui text-[#f5c542] tracking-widest">
-          SIDE GAME · PASTRY CATCHER ARCADE
+          {T.titleBanner}
         </div>
         <h1 className="font-pixel-display text-xl sm:text-2xl text-[#fbf3de] font-bold tracking-wider drop-shadow-[0_4px_0_#2b1b17]">
-          CAT &amp; BREAD
+          {T.gameTitle}
         </h1>
         <p className="font-pixel-ticket text-lg text-[#d9c8ac]">
-          Catch falling pastries, dodge moldy loaves!
+          {T.subtitle}
         </p>
       </div>
 
       {/* Best Score Banner */}
       <div className="flex items-center gap-2 bg-[#241714] px-4 py-1.5 rounded-md border-2 border-[#5c3a28] text-xs">
         <Trophy className="w-4 h-4 text-[#ffd700]" />
-        <span className="text-[#bcaaa4] text-[11px]">BEST RECORD:</span>
+        <span className="text-[#bcaaa4] text-[11px]">{T.bestRecord}</span>
         <span className="font-pixel-display text-[#f5c542] text-xs tabular-nums">
-          {highScore.toString().padStart(4, '0')} PTS
+          {fmtNum(highScore.toString().padStart(4, '0'), lang)} {T.pts}
         </span>
       </div>
 
       {/* Live Cat Preview Card */}
       <div className="flex flex-col items-center bg-[#241714] border-4 border-[#5c3a28] rounded-lg p-3.5 w-full pixel-box">
         <div className="font-pixel-display text-[10px] text-[#cbb596] tracking-wider uppercase mb-2">
-          CHOOSE YOUR CAT
+          {T.chooseCat}
         </div>
-        
+
         {/* Canvas preview */}
         <div className="w-[210px] h-[130px] bg-[#1a0f11] rounded border-2 border-[#422a1e] flex items-center justify-center relative overflow-hidden">
           <canvas
@@ -117,9 +124,11 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
           <div className="flex items-center justify-between text-[11px] text-[#a1887f]">
             <span className="flex items-center gap-1 font-bold text-[#f5c542]">
               <Edit3 className="w-3.5 h-3.5 text-[#f5c542]" />
-              NAME YOUR CAT:
+              {T.nameYourCat}
             </span>
-            <span className="text-[#8d6e63] tabular-nums">{catName.length}/16</span>
+            <span className="text-[#8d6e63] tabular-nums">
+              {fmtNum(catName.length, lang)}/{fmtNum(16, lang)}
+            </span>
           </div>
 
           <div className="flex items-center gap-1.5">
@@ -128,22 +137,24 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
               value={catName}
               maxLength={16}
               onChange={(e) => onUpdateCatName(e.target.value)}
-              placeholder={selectedConfig.name}
+              placeholder={selectedDisplayName}
               className="flex-1 bg-[#261819] border border-[#5d4037] focus:border-[#f5c542] focus:ring-1 focus:ring-[#f5c542] rounded px-2.5 py-1.5 text-xs font-bold text-[#f4e8c1] placeholder-[#6d4c41] outline-none tracking-wide"
             />
             <button
               type="button"
-              onClick={() => onUpdateCatName(selectedConfig.name)}
+              onClick={() => onUpdateCatName(selectedDisplayName)}
               title="Reset name to default breed"
               className="bg-[#3e2723] hover:bg-[#4e342e] text-[#d7ccc8] text-[11px] font-bold px-2.5 py-1.5 rounded border border-[#5d4037] cursor-pointer whitespace-nowrap transition-colors"
             >
-              Reset
+              {T.resetBtn}
             </button>
           </div>
 
           <div className="text-[10px] text-[#9e816b] flex items-center justify-between px-0.5">
-            <span>Breed: <strong className="text-[#bcaaa4]">{selectedConfig.breed}</strong></span>
-            <span>Shown on HUD &amp; Pause</span>
+            <span>
+              {T.breedLabel} <strong className="text-[#bcaaa4]">{selectedDisplayBreed}</strong>
+            </span>
+            <span>{T.shownOnHud}</span>
           </div>
         </div>
 
@@ -151,6 +162,9 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
         <div className="grid grid-cols-4 gap-2 mt-3 w-full">
           {CAT_COLORS.map((color) => {
             const isSelected = color.id === selectedColorId;
+            const faCat = FA_CAT_COLORS[color.id];
+            const catTitle = isFa ? faCat?.name || color.name : color.name;
+            const catBreed = isFa ? faCat?.breed || color.breed : color.breed;
             return (
               <button
                 key={color.id}
@@ -160,21 +174,20 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
                     ? 'border-[#f5c542] bg-[#3e2723] scale-[1.03] shadow-md ring-1 ring-[#f5c542]/40'
                     : 'border-[#4e342e] bg-[#1a0f11] hover:border-[#8d6e63]'
                 }`}
-                title={`${color.name} (${color.breed})`}
+                title={`${catTitle} (${catBreed})`}
               >
-                {/* Visual sprite preview */}
                 <div className="w-12 h-9 flex items-center justify-center relative overflow-hidden">
                   <img
                     src={color.spriteUrl}
-                    alt={color.name}
+                    alt={catTitle}
                     className="pixel-art max-w-full max-h-full object-contain filter drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]"
                   />
                 </div>
                 <span className="text-[10px] mt-1 text-[#f4e8c1] font-bold truncate max-w-full">
-                  {color.name.split(' ')[0]}
+                  {isFa ? catBreed : color.name.split(' ')[0]}
                 </span>
                 <span className="text-[9px] text-[#a1887f] truncate max-w-full">
-                  {color.breed}
+                  {isFa ? catTitle.split(' ')[0] : color.breed}
                 </span>
               </button>
             );
@@ -188,7 +201,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
         className="w-full py-3.5 px-6 bg-[#27ae60] hover:bg-[#219653] active:bg-[#1e824c] text-white font-bold text-sm sm:text-base rounded-md border-2 border-[#196f3d] pixel-btn flex items-center justify-center gap-2 cursor-pointer shadow-lg tracking-wider"
       >
         <Play className="w-5 h-5 fill-current" />
-        START BAKERY SHIFT
+        {T.startBtn}
       </button>
 
       {/* Secondary Button: How to Play */}
@@ -198,7 +211,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
           className="w-full py-2 px-3 bg-[#3e2723] hover:bg-[#4e342e] text-[#f4e8c1] rounded border border-[#5d4037] text-[10px] flex items-center justify-center gap-1.5 pixel-btn cursor-pointer transition-colors"
         >
           <HelpCircle className="w-3.5 h-3.5 text-[#f5c542]" />
-          <span>HOW TO PLAY</span>
+          <span>{T.howToPlayBtn}</span>
         </button>
       </div>
     </div>

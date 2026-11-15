@@ -23,6 +23,29 @@
   font-family: 'VT323', monospace;
 }
 
+/* Persian Retro & Pixel Typography */
+[dir="rtl"], .lang-fa {
+  font-family: 'Vazirmatn', sans-serif;
+}
+
+[dir="rtl"] .font-pixel-display,
+.lang-fa .font-pixel-display {
+  font-family: 'Lalezar', 'Press Start 2P', system-ui, sans-serif;
+  letter-spacing: 0px;
+}
+
+[dir="rtl"] .font-pixel-ui,
+.lang-fa .font-pixel-ui {
+  font-family: 'Vazirmatn', 'Silkscreen', system-ui, sans-serif;
+  font-weight: 700;
+}
+
+[dir="rtl"] .font-pixel-ticket,
+.lang-fa .font-pixel-ticket {
+  font-family: 'Vazirmatn', 'VT323', system-ui, sans-serif;
+  font-weight: 800;
+}
+
 .pixel-art {
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;

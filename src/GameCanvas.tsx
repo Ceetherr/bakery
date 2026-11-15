@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   CatColorConfig,
   FallingItem,
@@ -12,6 +12,7 @@ import {
   ItemType,
   Particle,
 } from './types';
+import { CAT_UI_TEXT, Language, fmtNum } from './breadShift/i18n';
 import { BREAD_SPRITES, drawBakeryBackground, drawItem, drawPixelCat } from './sprites';
 import { sound } from './audio';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
@@ -20,20 +21,24 @@ interface GameCanvasProps {
   catConfig: CatColorConfig;
   stats: GameStats;
   isPaused: boolean;
+  isGameOver?: boolean;
   onUpdateStats: (updater: (prev: GameStats) => GameStats) => void;
   onGameOver: (reason: 'lives' | 'misses') => void;
   onCoffeeTimeChange: (timeRemaining: number) => void;
   onTogglePause: () => void;
+  lang?: Language;
 }
 
 export const GameCanvas: React.FC<GameCanvasProps> = ({
   catConfig,
   stats,
   isPaused,
+  isGameOver = false,
   onUpdateStats,
   onGameOver,
   onCoffeeTimeChange,
   onTogglePause,
+  lang = 'en',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -69,6 +74,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const spawnTimerRef = useRef(0);
   const coffeeTimerRef = useRef(0); // in seconds
   const screenShakeRef = useRef(0);
+  const scoreRef = useRef(stats.score);
+  scoreRef.current = stats.score;
+  const liveStatsRef = useRef<GameStats>(stats);
+  liveStatsRef.current = stats;
+  const gameEndedRef = useRef(false);
+  const isPointerDownRef = useRef(false);
+  const langRef = useRef<Language>(lang);
+  langRef.current = lang;
+  const lastReportedCoffeeRef = useRef(0);
 
   // Keyboard tracking
   const keysRef = useRef<{ [key: string]: boolean }>({});
@@ -200,6 +214,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   // Keyboard Event Listeners
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isGameOver) return;
+
       // Toggle pause on P or Escape
       if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
         e.preventDefault();
@@ -230,15 +246,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isPaused, onTogglePause]);
+  }, [isGameOver, isPaused, onTogglePause]);
 
   // Direct Pointer/Touch Dragging on canvas
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isGameOver) return;
     if (isPaused) {
       onTogglePause();
       return;
     }
 
+    isPointerDownRef.current = true;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -254,7 +272,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (e.buttons !== 1) return;
+    if (isGameOver || isPaused) return;
+    if (!isPointerDownRef.current && e.buttons !== 1) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -268,6 +287,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     } else if (catRef.current.x < prevX - 1) {
       catRef.current.direction = 'left';
     }
+  };
+
+  const handlePointerUpOrCancel = () => {
+    isPointerDownRef.current = false;
   };
 
   // Main 60fps Game Loop
@@ -291,7 +314,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         // Update Coffee turbo timer
         if (coffeeTimerRef.current > 0) {
           coffeeTimerRef.current = Math.max(0, coffeeTimerRef.current - dt);
-          onCoffeeTimeChange(coffeeTimerRef.current);
+          if (
+            Math.abs(lastReportedCoffeeRef.current - coffeeTimerRef.current) >= 0.08 ||
+            coffeeTimerRef.current === 0
+          ) {
+            lastReportedCoffeeRef.current = coffeeTimerRef.current;
+            onCoffeeTimeChange(coffeeTimerRef.current);
+          }
 
           // Emit coffee steam particles behind cat
           if (Math.random() < 0.4) {
@@ -307,7 +336,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               maxLife: 0.4,
             });
           }
-        } else {
+        } else if (lastReportedCoffeeRef.current !== 0) {
+          lastReportedCoffeeRef.current = 0;
           onCoffeeTimeChange(0);
         }
 
@@ -362,11 +392,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
         // --- 2. SPAWNING ITEMS ---
         // Spawn rate scales with score: interval drops from 1.35s down to 0.55s
-        const spawnInterval = Math.max(0.55, 1.35 - stats.score * 0.008);
+        const curScore = scoreRef.current;
+        const spawnInterval = Math.max(0.55, 1.35 - curScore * 0.008);
         spawnTimerRef.current += dt;
         if (spawnTimerRef.current >= spawnInterval) {
           spawnTimerRef.current = 0;
-          spawnItem(stats.score);
+          spawnItem(curScore);
         }
 
         // --- 3. UPDATE FALLING ITEMS & COLLISIONS ---
@@ -405,6 +436,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             itemBox.y + itemBox.h > catBox.y;
 
           if (isColliding) {
+            const T = CAT_UI_TEXT[langRef.current];
             // Cat catches / eats the item!
             if (item.isHazard) {
               // Moldy Bread eaten: lose life!
@@ -413,48 +445,54 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               catRef.current.state = 'hurt';
               catRef.current.stateTimer = 0.55;
 
-              addFloatingText('-1 LIFE!', item.x, item.y - 10, '#e63946');
+              addFloatingText(T.floatHurt, item.x, item.y - 10, '#e63946');
               addCrumbs(item.x, item.y, '#27ae60', 12);
 
-              onUpdateStats((prev) => {
-                const nextLives = prev.lives - 1;
-                if (nextLives <= 0) {
-                  sound.playGameOverSound();
-                  onGameOver('lives');
-                }
-                return {
-                  ...prev,
-                  lives: Math.max(0, nextLives),
-                };
-              });
+              const nextLives = Math.max(0, liveStatsRef.current.lives - 1);
+              liveStatsRef.current = {
+                ...liveStatsRef.current,
+                lives: nextLives,
+              };
+              const updatedSnapshot = liveStatsRef.current;
+              onUpdateStats(() => updatedSnapshot);
+
+              if (nextLives <= 0 && !gameEndedRef.current) {
+                gameEndedRef.current = true;
+                sound.playGameOverSound();
+                onGameOver('lives');
+              }
             } else if (item.isPowerUp) {
               // Power-up caught
               if (item.type === 'milk') {
                 sound.playPowerUpSound('milk');
-                addFloatingText('+1 HEART!', item.x, item.y - 10, '#a5d6a7');
+                addFloatingText(T.floatHeart, item.x, item.y - 10, '#a5d6a7');
                 addCrumbs(item.x, item.y, '#ffffff', 14, true);
 
-                onUpdateStats((prev) => ({
-                  ...prev,
-                  lives: Math.min(prev.maxLives, prev.lives + 1),
+                liveStatsRef.current = {
+                  ...liveStatsRef.current,
+                  lives: Math.min(liveStatsRef.current.maxLives, liveStatsRef.current.lives + 1),
                   powerUpsCollected: {
-                    ...prev.powerUpsCollected,
-                    milk: prev.powerUpsCollected.milk + 1,
+                    ...liveStatsRef.current.powerUpsCollected,
+                    milk: liveStatsRef.current.powerUpsCollected.milk + 1,
                   },
-                }));
+                };
+                const updatedSnapshot = liveStatsRef.current;
+                onUpdateStats(() => updatedSnapshot);
               } else if (item.type === 'coffee') {
                 sound.playPowerUpSound('coffee');
                 coffeeTimerRef.current = 8.0; // 8 seconds of turbo
-                addFloatingText('TURBO SPEED!', item.x, item.y - 10, '#ffe082');
+                addFloatingText(T.floatTurbo, item.x, item.y - 10, '#ffe082');
                 addCrumbs(item.x, item.y, '#d35400', 14);
 
-                onUpdateStats((prev) => ({
-                  ...prev,
+                liveStatsRef.current = {
+                  ...liveStatsRef.current,
                   powerUpsCollected: {
-                    ...prev.powerUpsCollected,
-                    coffee: prev.powerUpsCollected.coffee + 1,
+                    ...liveStatsRef.current.powerUpsCollected,
+                    coffee: liveStatsRef.current.powerUpsCollected.coffee + 1,
                   },
-                }));
+                };
+                const updatedSnapshot = liveStatsRef.current;
+                onUpdateStats(() => updatedSnapshot);
               }
               catRef.current.state = 'eat';
               catRef.current.stateTimer = 0.25;
@@ -481,31 +519,31 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
               addCrumbs(item.x, item.y, crumbColor, isGolden ? 16 : 8, isGolden);
               addFloatingText(
-                `+${item.points}`,
+                `+${fmtNum(item.points, langRef.current)}`,
                 item.x,
                 item.y - 10,
                 isGolden ? '#ffd700' : '#f5c542'
               );
 
-              onUpdateStats((prev) => {
-                const newScore = prev.score + item.points;
-                const newHigh = Math.max(prev.highScore, newScore);
-                try {
-                  localStorage.setItem('cat_bread_best_score', String(newHigh));
-                } catch {
-                  // ignore
-                }
-
-                return {
-                  ...prev,
-                  score: newScore,
-                  highScore: newHigh,
-                  breadsEaten: {
-                    ...prev.breadsEaten,
-                    [item.type]: (prev.breadsEaten[item.type] || 0) + 1,
-                  },
-                };
-              });
+              const newScore = liveStatsRef.current.score + item.points;
+              const newHigh = Math.max(liveStatsRef.current.highScore, newScore);
+              scoreRef.current = newScore;
+              liveStatsRef.current = {
+                ...liveStatsRef.current,
+                score: newScore,
+                highScore: newHigh,
+                breadsEaten: {
+                  ...liveStatsRef.current.breadsEaten,
+                  [item.type]: (liveStatsRef.current.breadsEaten[item.type] || 0) + 1,
+                },
+              };
+              const updatedSnapshot = liveStatsRef.current;
+              onUpdateStats(() => updatedSnapshot);
+              try {
+                localStorage.setItem('cat_bread_best_score', String(newHigh));
+              } catch {
+                // ignore
+              }
             }
 
             // Do not keep item in activeItems
@@ -523,20 +561,22 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             } else {
               // Regular bread missed! Reaching 5 dropped breads equals game over!
               sound.playMissSound();
-              addFloatingText('DROPPED!', item.x, GAME_HEIGHT - 64, '#ef5350');
+              addFloatingText(CAT_UI_TEXT[langRef.current].floatDropped, item.x, GAME_HEIGHT - 64, '#ef5350');
               addCrumbs(item.x, GAME_HEIGHT - 48, '#8b5a2b', 8);
 
-              onUpdateStats((prev) => {
-                const newMisses = prev.misses + 1;
-                if (newMisses >= prev.maxMisses) {
-                  sound.playGameOverSound();
-                  onGameOver('misses');
-                }
-                return {
-                  ...prev,
-                  misses: newMisses,
-                };
-              });
+              const newMisses = liveStatsRef.current.misses + 1;
+              liveStatsRef.current = {
+                ...liveStatsRef.current,
+                misses: newMisses,
+              };
+              const updatedSnapshot = liveStatsRef.current;
+              onUpdateStats(() => updatedSnapshot);
+
+              if (newMisses >= updatedSnapshot.maxMisses && !gameEndedRef.current) {
+                gameEndedRef.current = true;
+                sound.playGameOverSound();
+                onGameOver('misses');
+              }
             }
             continue;
           }
@@ -618,7 +658,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       for (const t of floatingTextsRef.current) {
         ctx.save();
         ctx.globalAlpha = t.alpha;
-        ctx.font = '10px "Press Start 2P", monospace';
+        ctx.font =
+          langRef.current === 'fa'
+            ? 'bold 13px "Vazirmatn", sans-serif'
+            : '10px "Press Start 2P", monospace';
         ctx.textAlign = 'center';
 
         // Dark outline for crisp readability
@@ -647,7 +690,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
     animId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animId);
-  }, [catConfig, isPaused, stats.score, onGameOver, onUpdateStats, onCoffeeTimeChange]);
+  }, [catConfig, isPaused, onGameOver, onUpdateStats, onCoffeeTimeChange]);
 
   return (
     <div
@@ -661,6 +704,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         height={GAME_HEIGHT}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUpOrCancel}
+        onPointerCancel={handlePointerUpOrCancel}
         className="pixel-art w-full h-full rounded-md border-4 border-[#54342a] shadow-2xl cursor-pointer bg-[#2d1e1e]"
       />
 

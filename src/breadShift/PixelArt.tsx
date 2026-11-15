@@ -11,6 +11,8 @@ import {
   BreadShapeId,
   CustomerExpression,
   CustomerTypeDef,
+  ExtraIngredientId,
+  ExtraItemId,
   IngredientId,
   WeatherType,
 } from './types';
@@ -40,7 +42,7 @@ export const BreadSprite: React.FC<BreadSpriteProps> = ({
   showSteam = false,
 }) => {
   const effectiveShape: BreadShapeId = shape || (
-    breadId === 'sangak' || breadId === 'barbari' || breadId === 'saffron_barbari'
+    breadId === 'sangak' || breadId === 'barbari' || breadId === 'saffron_barbari' || breadId === 'focaccia'
       ? 'flat_oval'
       : breadId === 'baguette'
       ? 'long_baguette'
@@ -48,10 +50,12 @@ export const BreadSprite: React.FC<BreadSpriteProps> = ({
       ? 'thin_sheet'
       : breadId === 'croissant' || breadId === 'baklava_roll'
       ? 'crescent'
+      : breadId === 'simit' || breadId === 'pretzel' || breadId === 'royal_brioche'
+      ? 'braided_twist'
       : 'round'
   );
 
-  // Palette based on bake outcome (and rare saffron sheen for specialty breads)
+  // Palette based on bake outcome (and rare saffron sheen / dark pretzel crust)
   let outline = '#3d2210';
   let crustDark = '#b86c21';
   let crustMid = '#df9a38';
@@ -66,6 +70,17 @@ export const BreadSprite: React.FC<BreadSpriteProps> = ({
     crustMid = '#f2ab29';
     crustLight = '#ffe066';
     crumb = '#fff3b8';
+  } else if (outcome === 'perfect' && breadId === 'pretzel') {
+    outline = '#291408';
+    crustDark = '#6e3411';
+    crustMid = '#994c1c';
+    crustLight = '#c46c2b';
+    crumb = '#f3d99d';
+  } else if (outcome === 'perfect' && breadId === 'komaj') {
+    crustDark = '#b87614';
+    crustMid = '#e6a825';
+    crustLight = '#ffcf4d';
+    crumb = '#fff0a8';
   }
 
   if (outcome === 'raw') {
@@ -100,6 +115,9 @@ export const BreadSprite: React.FC<BreadSpriteProps> = ({
     hasSesame ||
     breadId === 'barbari' ||
     breadId === 'taftoon' ||
+    breadId === 'shirmal' ||
+    breadId === 'simit' ||
+    breadId === 'komaj' ||
     breadId === 'saffron_barbari' ||
     breadId === 'baklava_roll';
 
@@ -149,13 +167,13 @@ export const BreadSprite: React.FC<BreadSpriteProps> = ({
       >
         {effectiveShape === 'flat_oval' && (
           <g>
-            {/* Sangak / Barbari elongated oval flatbread */}
+            {/* Sangak / Barbari / Focaccia elongated oval flatbread */}
             <rect x="4" y="6" width="16" height="12" fill={outline} />
             <rect x="3" y="8" width="18" height="8" fill={outline} />
             <rect x="4" y="7" width="16" height="10" fill={crustDark} />
             <rect x="4" y="8" width="16" height="8" fill={crustMid} />
             <rect x="6" y="9" width="12" height="5" fill={crustLight} />
-            {/* Pebble dimples for Sangak OR ridges for Barbari / Saffron Barbari */}
+            {/* Pebble dimples for Sangak, herb dimples for Focaccia, OR ridges for Barbari */}
             {breadId === 'barbari' || breadId === 'saffron_barbari' ? (
               <>
                 <rect x="6" y="10" width="12" height="1" fill={crustDark} />
@@ -165,6 +183,20 @@ export const BreadSprite: React.FC<BreadSpriteProps> = ({
                     <rect x="8" y="11" width="3" height="1" fill="#e63946" />
                     <rect x="13" y="12" width="2" height="1" fill="#e63946" />
                   </>
+                )}
+              </>
+            ) : breadId === 'focaccia' ? (
+              <>
+                <rect x="6" y="10" width="2" height="2" fill={crustDark} />
+                <rect x="11" y="9" width="2" height="2" fill={crustDark} />
+                <rect x="15" y="11" width="2" height="2" fill={crustDark} />
+                <rect x="9" y="13" width="2" height="1" fill={crustDark} />
+                {outcome !== 'burnt' && (
+                  <g fill="#4f9d69">
+                    <rect x="7" y="9" width="1" height="1" />
+                    <rect x="12" y="12" width="2" height="1" />
+                    <rect x="15" y="9" width="1" height="1" />
+                  </g>
                 )}
               </>
             ) : (
@@ -180,7 +212,7 @@ export const BreadSprite: React.FC<BreadSpriteProps> = ({
 
         {effectiveShape === 'round' && (
           <g>
-            {/* White loaf / Taftoon / Pita / Nan-e Khamei / Royal Brioche */}
+            {/* White loaf / Taftoon / Shirmal / Pita / Nan-e Khamei / Sourdough / Komaj */}
             <rect x="6" y="5" width="12" height="14" fill={outline} />
             <rect x="4" y="7" width="16" height="10" fill={outline} />
             <rect x="6" y="6" width="12" height="12" fill={crustDark} />
@@ -192,13 +224,27 @@ export const BreadSprite: React.FC<BreadSpriteProps> = ({
                 <rect x="9" y="6" width="6" height="3" fill="#fffdf6" />
                 <rect x="8" y="11" width="8" height="2" fill="#fff7e2" />
               </>
-            ) : breadId === 'royal_brioche' ? (
-              /* Braided crown & sugar pearl sheen */
+            ) : breadId === 'sourdough' ? (
+              /* Deep artisan ear slash & flour dusting */
               <>
-                <rect x="9" y="5" width="6" height="2" fill={crustMid} />
-                <rect x="7" y="9" width="10" height="1" fill={crustDark} />
-                <rect x="8" y="12" width="8" height="1" fill={crustDark} />
-                <rect x="10" y="7" width="4" height="2" fill="#fff7cc" />
+                <rect x="7" y="8" width="9" height="2" fill="#fff3d6" />
+                <rect x="8" y="10" width="8" height="2" fill={crumb} />
+                <rect x="9" y="12" width="6" height="1" fill={crustDark} />
+              </>
+            ) : breadId === 'shirmal' ? (
+              /* Crosshatch butter glaze */
+              <>
+                <rect x="8" y="9" width="8" height="1" fill="#ffe89c" />
+                <rect x="8" y="12" width="8" height="1" fill="#ffe89c" />
+                <rect x="10" y="7" width="1" height="8" fill={crustDark} />
+                <rect x="13" y="7" width="1" height="8" fill={crustDark} />
+              </>
+            ) : breadId === 'komaj' ? (
+              /* Turmeric golden sheen & traditional stamp */
+              <>
+                <rect x="9" y="8" width="6" height="6" fill="#ffcf4d" opacity={outcome === 'burnt' ? 0 : 0.65} />
+                <rect x="11" y="8" width="2" height="6" fill={crustDark} />
+                <rect x="9" y="10" width="6" height="2" fill={crustDark} />
               </>
             ) : breadId === 'taftoon' ? (
               /* Pricked dot pattern */
@@ -285,6 +331,67 @@ export const BreadSprite: React.FC<BreadSpriteProps> = ({
           </g>
         )}
 
+        {effectiveShape === 'braided_twist' && (
+          <g>
+            {breadId === 'pretzel' ? (
+              /* Classic Pretzel knot */
+              <>
+                <rect x="5" y="6" width="14" height="12" fill={outline} />
+                <rect x="4" y="8" width="16" height="8" fill={outline} />
+                <rect x="6" y="7" width="12" height="10" fill={crustDark} />
+                <rect x="5" y="9" width="14" height="6" fill={crustMid} />
+                {/* Knot holes */}
+                <rect x="7" y="9" width="3" height="3" fill="#1b110f" />
+                <rect x="14" y="9" width="3" height="3" fill="#1b110f" />
+                <rect x="9" y="13" width="6" height="2" fill="#1b110f" />
+                {/* Crossed arms */}
+                <rect x="9" y="9" width="6" height="3" fill={crustLight} />
+                {/* Pretzel salt flecks */}
+                {outcome !== 'burnt' && (
+                  <g fill="#fff8ec">
+                    <rect x="7" y="7" width="1" height="1" />
+                    <rect x="15" y="8" width="1" height="1" />
+                    <rect x="11" y="10" width="1" height="1" />
+                    <rect x="8" y="15" width="1" height="1" />
+                  </g>
+                )}
+              </>
+            ) : breadId === 'royal_brioche' ? (
+              /* Braided Royal Brioche crown twist */
+              <>
+                <rect x="4" y="6" width="16" height="12" fill={outline} />
+                <rect x="3" y="8" width="18" height="8" fill={outline} />
+                <rect x="5" y="7" width="14" height="10" fill={crustDark} />
+                <rect x="4" y="9" width="16" height="6" fill={crustMid} />
+                {/* Braided strands */}
+                <rect x="6" y="8" width="4" height="3" fill={crustLight} />
+                <rect x="10" y="9" width="4" height="4" fill={crustLight} />
+                <rect x="14" y="8" width="4" height="3" fill={crustLight} />
+                <rect x="8" y="12" width="4" height="3" fill={crustLight} />
+                <rect x="12" y="12" width="4" height="3" fill={crustLight} />
+                <rect x="10" y="8" width="4" height="2" fill="#fff7cc" />
+              </>
+            ) : (
+              /* Simit twisted sesame ring */
+              <>
+                <rect x="5" y="5" width="14" height="14" fill={outline} />
+                <rect x="4" y="7" width="16" height="10" fill={outline} />
+                <rect x="6" y="6" width="12" height="12" fill={crustDark} />
+                <rect x="5" y="8" width="14" height="8" fill={crustMid} />
+                <rect x="7" y="7" width="10" height="3" fill={crustLight} />
+                <rect x="7" y="14" width="10" height="3" fill={crustLight} />
+                {/* Center ring hole */}
+                <rect x="9" y="9" width="6" height="6" fill={outline} />
+                <rect x="10" y="10" width="4" height="4" fill="#1b110f" />
+                {/* Twist notches */}
+                <rect x="7" y="9" width="1" height="2" fill={crustDark} />
+                <rect x="16" y="11" width="1" height="2" fill={crustDark} />
+                <rect x="11" y="6" width="1" height="2" fill={crustDark} />
+              </>
+            )}
+          </g>
+        )}
+
         {/* Sesame Seed Specks */}
         {showSeedsSesame && outcome !== 'burnt' && (
           <g fill="#fff5d1">
@@ -297,7 +404,7 @@ export const BreadSprite: React.FC<BreadSpriteProps> = ({
         )}
 
         {/* Nigella Seed Specks */}
-        {(hasNigella || breadId === 'saffron_barbari' || breadId === 'royal_brioche') && (
+        {(hasNigella || breadId === 'saffron_barbari' || breadId === 'royal_brioche' || breadId === 'focaccia' || breadId === 'komaj') && (
           <g fill="#1b1822">
             <rect x="8" y="11" width="1" height="1" />
             <rect x="12" y="10" width="1" height="1" />
@@ -603,6 +710,16 @@ export const ShapeIcon: React.FC<{ id: BreadShapeId; size?: number }> = ({ id, s
         <rect x="3" y="9" width="14" height="5" fill="#4f321b" />
         <rect x="6" y="7" width="8" height="3" fill="#f6d89e" />
         <rect x="4" y="10" width="12" height="3" fill="#e5b874" />
+      </>
+    )}
+    {id === 'braided_twist' && (
+      <>
+        <rect x="4" y="4" width="12" height="12" fill="#4f321b" />
+        <rect x="5" y="5" width="10" height="10" fill="#e5b874" />
+        <rect x="6" y="6" width="8" height="2" fill="#f6d89e" />
+        <rect x="6" y="12" width="8" height="2" fill="#f6d89e" />
+        <rect x="8" y="8" width="4" height="4" fill="#4f321b" />
+        <rect x="9" y="9" width="2" height="2" fill="#1b110f" />
       </>
     )}
   </svg>
@@ -915,3 +1032,293 @@ export const BakerAvatarSprite: React.FC<{
     </svg>
   );
 };
+
+// ============================================================================
+// 8. PIXEL-ART BEVERAGE & DESSERT SPRITE (Teas, Karak Tea, Coffee + Desserts)
+// ============================================================================
+export const ExtraItemSprite: React.FC<{
+  id: ExtraItemId;
+  size?: number;
+  showSteam?: boolean;
+}> = ({ id, size = 44, showSteam = false }) => {
+  const isGlassTea =
+    id === 'persian_tea' ||
+    id === 'saffron_tea' ||
+    id === 'karak_tea' ||
+    id === 'mint_tea' ||
+    id === 'rose_tea';
+  const isBeverage = isGlassTea || id === 'persian_coffee';
+
+  return (
+    <div
+      className="relative inline-flex items-center justify-center"
+      style={{ width: size, height: size }}
+    >
+      {showSteam && isBeverage && (
+        <svg
+          viewBox="0 0 16 8"
+          width={size * 0.65}
+          height={size * 0.3}
+          shapeRendering="crispEdges"
+          className="absolute -top-2 left-1/2 -translate-x-1/2 pointer-events-none animate-steam"
+        >
+          <rect x="4" y="4" width="2" height="3" fill="#ffffff" opacity="0.7" />
+          <rect x="8" y="1" width="2" height="4" fill="#ffffff" opacity="0.85" />
+          <rect x="11" y="3" width="2" height="3" fill="#ffffff" opacity="0.65" />
+        </svg>
+      )}
+
+      <svg
+        viewBox="0 0 24 24"
+        width={size}
+        height={size}
+        shapeRendering="crispEdges"
+        className="pixel-art"
+      >
+        {/* TEAS (Persian waisted glass estekan + saucer + garnish) */}
+        {isGlassTea && (
+          <g>
+            {/* Saucer */}
+            <rect x="4" y="18" width="16" height="3" fill="#2e1b14" />
+            <rect x="5" y="19" width="14" height="1" fill="#e6dcc8" />
+            <rect x="7" y="18" width="10" height="1" fill="#c94b4b" />
+            {/* Glass body outline */}
+            <rect x="7" y="6" width="10" height="12" fill="#2e1b14" />
+            <rect x="8" y="7" width="8" height="10" fill="#f7f2e8" />
+            {/* Tea liquid color */}
+            {id === 'persian_tea' && (
+              <>
+                <rect x="8" y="9" width="8" height="8" fill="#8f2419" />
+                <rect x="9" y="9" width="6" height="3" fill="#c4402b" />
+                <rect x="16" y="16" width="3" height="3" fill="#ffffff" />
+              </>
+            )}
+            {id === 'karak_tea' && (
+              <>
+                {/* Warm creamy caramel spiced milk tea */}
+                <rect x="8" y="9" width="8" height="8" fill="#c78342" />
+                <rect x="9" y="9" width="6" height="3" fill="#ecc186" />
+                {/* Cardamom & cinnamon garnish */}
+                <rect x="10" y="7" width="4" height="2" fill="#f5e6cc" />
+                <rect x="16" y="16" width="3" height="2" fill="#65a30d" />
+                <rect x="5" y="16" width="2" height="2" fill="#92400e" />
+              </>
+            )}
+            {id === 'saffron_tea' && (
+              <>
+                <rect x="8" y="9" width="8" height="8" fill="#d97706" />
+                <rect x="9" y="9" width="6" height="3" fill="#fbbf24" />
+                <rect x="10" y="8" width="2" height="1" fill="#dc2626" />
+                <rect x="16" y="16" width="3" height="2" fill="#65a30d" />
+              </>
+            )}
+            {id === 'mint_tea' && (
+              <>
+                <rect x="8" y="9" width="8" height="8" fill="#2f855a" />
+                <rect x="9" y="9" width="6" height="3" fill="#68d391" />
+                <rect x="13" y="4" width="3" height="2" fill="#38a169" />
+                <rect x="11" y="5" width="3" height="2" fill="#68d391" />
+              </>
+            )}
+            {id === 'rose_tea' && (
+              <>
+                <rect x="8" y="9" width="8" height="8" fill="#be185d" />
+                <rect x="9" y="9" width="6" height="3" fill="#f472b6" />
+                <rect x="10" y="7" width="4" height="2" fill="#fb7185" />
+                <rect x="11" y="6" width="2" height="1" fill="#fda4af" />
+              </>
+            )}
+            {/* Glass rim highlight */}
+            <rect x="8" y="6" width="8" height="1" fill="#ffffff" />
+            <rect x="9" y="10" width="1" height="5" fill="#ffffff" opacity="0.45" />
+          </g>
+        )}
+
+        {/* CARDAMOM COPPER COFFEE */}
+        {id === 'persian_coffee' && (
+          <g>
+            {/* Copper saucer */}
+            <rect x="4" y="18" width="16" height="3" fill="#2e1b14" />
+            <rect x="5" y="19" width="14" height="1" fill="#d97706" />
+            {/* Porcelain/copper cup + handle */}
+            <rect x="6" y="8" width="11" height="10" fill="#2e1b14" />
+            <rect x="17" y="10" width="3" height="5" fill="#2e1b14" />
+            <rect x="17" y="11" width="2" height="3" fill="#e6dcc8" />
+            <rect x="7" y="9" width="9" height="8" fill="#efe6d5" />
+            <rect x="7" y="13" width="9" height="3" fill="#b45309" />
+            {/* Dark rich coffee + golden crema */}
+            <rect x="7" y="8" width="9" height="3" fill="#3e2214" />
+            <rect x="8" y="8" width="7" height="2" fill="#7c4728" />
+            <rect x="10" y="7" width="3" height="1" fill="#c98a55" />
+            {/* Green cardamom pod */}
+            <rect x="15" y="16" width="3" height="2" fill="#65a30d" />
+          </g>
+        )}
+
+        {/* SHOLEZARD SAFFRON PUDDING */}
+        {id === 'saffron_pudding' && (
+          <g>
+            <rect x="4" y="13" width="16" height="6" fill="#2e1b14" />
+            <rect x="6" y="18" width="12" height="3" fill="#2e1b14" />
+            <rect x="5" y="14" width="14" height="4" fill="#3b8c84" />
+            <rect x="7" y="17" width="10" height="3" fill="#296660" />
+            <rect x="5" y="10" width="14" height="4" fill="#f59e0b" />
+            <rect x="6" y="9" width="12" height="3" fill="#fcd34d" />
+            <rect x="11" y="9" width="2" height="3" fill="#92400e" />
+            <rect x="9" y="10" width="6" height="1" fill="#92400e" />
+            <rect x="7" y="11" width="2" height="1" fill="#4ade80" />
+            <rect x="15" y="11" width="2" height="1" fill="#4ade80" />
+          </g>
+        )}
+
+        {/* HONEY ZOOLBIA & BAMIEH */}
+        {id === 'zoolbia_bamieh' && (
+          <g>
+            <rect x="3" y="16" width="18" height="4" fill="#2e1b14" />
+            <rect x="4" y="17" width="16" height="2" fill="#d97706" />
+            <rect x="5" y="8" width="8" height="8" fill="#92400e" />
+            <rect x="6" y="9" width="6" height="6" fill="#f59e0b" />
+            <rect x="7" y="10" width="4" height="4" fill="#fde047" />
+            <rect x="8" y="11" width="2" height="2" fill="#b45309" />
+            <rect x="14" y="11" width="5" height="5" fill="#78350f" />
+            <rect x="15" y="12" width="3" height="3" fill="#fbbf24" />
+            <rect x="15" y="9" width="4" height="3" fill="#f59e0b" />
+            <rect x="9" y="8" width="1" height="1" fill="#ffffff" />
+            <rect x="16" y="11" width="1" height="1" fill="#ffffff" />
+          </g>
+        )}
+
+        {/* PISTACHIO BAKLAVA */}
+        {id === 'baklava_plate' && (
+          <g>
+            <rect x="3" y="16" width="18" height="4" fill="#2e1b14" />
+            <rect x="4" y="17" width="16" height="2" fill="#f3ebd9" />
+            <rect x="5" y="10" width="14" height="6" fill="#4a2b13" />
+            <rect x="6" y="11" width="12" height="4" fill="#d97706" />
+            <rect x="6" y="9" width="12" height="3" fill="#fbbf24" />
+            <rect x="8" y="8" width="8" height="2" fill="#fde68a" />
+            <rect x="9" y="8" width="6" height="2" fill="#16a34a" />
+            <rect x="10" y="7" width="4" height="1" fill="#4ade80" />
+            <rect x="12" y="10" width="1" height="5" fill="#78350f" />
+          </g>
+        )}
+
+        {/* BASTANI SONNATI (Saffron Ice Cream Sandwich) */}
+        {id === 'bastani_sonnati' && (
+          <g>
+            <rect x="4" y="16" width="16" height="4" fill="#e2e8f0" />
+            <rect x="5" y="14" width="14" height="3" fill="#78350f" />
+            <rect x="6" y="15" width="12" height="1" fill="#d97706" />
+            <rect x="5" y="9" width="14" height="5" fill="#f59e0b" />
+            <rect x="6" y="10" width="12" height="3" fill="#fde047" />
+            <rect x="8" y="11" width="2" height="2" fill="#fffbeb" />
+            <rect x="13" y="10" width="2" height="2" fill="#fffbeb" />
+            <rect x="11" y="12" width="1" height="1" fill="#22c55e" />
+            <rect x="15" y="11" width="1" height="1" fill="#22c55e" />
+            <rect x="5" y="6" width="14" height="3" fill="#78350f" />
+            <rect x="6" y="7" width="12" height="1" fill="#f59e0b" />
+          </g>
+        )}
+      </svg>
+    </div>
+  );
+};
+
+// ============================================================================
+// 9. PIXEL-ART BEVERAGE & DESSERT INGREDIENT ICON
+// ============================================================================
+export const ExtraIngredientIcon: React.FC<{ id: ExtraIngredientId; size?: number }> = ({
+  id,
+  size = 18,
+}) => (
+  <svg viewBox="0 0 16 16" width={size} height={size} shapeRendering="crispEdges" className="pixel-art shrink-0">
+    {id === 'hot_water' && (
+      <g>
+        <rect x="4" y="5" width="8" height="9" fill="#2b5570" />
+        <rect x="5" y="6" width="6" height="7" fill="#7cc4e0" />
+        <rect x="6" y="2" width="1" height="2" fill="#ffffff" />
+        <rect x="9" y="1" width="1" height="3" fill="#ffffff" />
+      </g>
+    )}
+    {id === 'tea_leaves' && (
+      <g>
+        <rect x="3" y="6" width="10" height="7" fill="#4f251b" />
+        <rect x="4" y="5" width="8" height="6" fill="#7f2b1e" />
+        <rect x="6" y="3" width="4" height="3" fill="#a83b28" />
+      </g>
+    )}
+    {id === 'coffee_grounds' && (
+      <g>
+        <rect x="3" y="5" width="5" height="6" fill="#3e2214" />
+        <rect x="4" y="6" width="3" height="4" fill="#6b3e26" />
+        <rect x="8" y="6" width="5" height="6" fill="#2a160c" />
+        <rect x="9" y="7" width="3" height="4" fill="#54301c" />
+      </g>
+    )}
+    {id === 'milk_cream' && (
+      <g>
+        <rect x="4" y="3" width="8" height="10" fill="#2c445c" />
+        <rect x="5" y="4" width="6" height="8" fill="#f9fcff" />
+        <rect x="5" y="7" width="6" height="3" fill="#e6b87c" />
+      </g>
+    )}
+    {id === 'saffron' && (
+      <g>
+        <rect x="4" y="10" width="8" height="3" fill="#92400e" />
+        <rect x="5" y="5" width="2" height="5" fill="#dc2626" />
+        <rect x="8" y="4" width="2" height="6" fill="#ef4444" />
+        <rect x="10" y="6" width="2" height="4" fill="#f59e0b" />
+      </g>
+    )}
+    {id === 'cardamom' && (
+      <g>
+        <rect x="4" y="6" width="8" height="5" fill="#3f6212" />
+        <rect x="5" y="5" width="6" height="5" fill="#84cc16" />
+        <rect x="7" y="6" width="2" height="3" fill="#bef264" />
+      </g>
+    )}
+    {id === 'mint' && (
+      <g>
+        <rect x="3" y="5" width="5" height="5" fill="#15803d" />
+        <rect x="7" y="3" width="6" height="6" fill="#22c55e" />
+        <rect x="6" y="9" width="2" height="5" fill="#166534" />
+      </g>
+    )}
+    {id === 'rose' && (
+      <g>
+        <rect x="5" y="4" width="6" height="6" fill="#be185d" />
+        <rect x="6" y="5" width="4" height="4" fill="#f472b6" />
+        <rect x="7" y="10" width="2" height="4" fill="#15803d" />
+      </g>
+    )}
+    {id === 'cinnamon_pistachio' && (
+      <g>
+        <rect x="3" y="8" width="9" height="3" fill="#92400e" />
+        <rect x="4" y="9" width="7" height="1" fill="#b45309" />
+        <rect x="9" y="4" width="4" height="3" fill="#22c55e" />
+      </g>
+    )}
+    {id === 'rose_syrup' && (
+      <g>
+        <rect x="5" y="3" width="6" height="10" fill="#78350f" />
+        <rect x="6" y="5" width="4" height="7" fill="#fbbf24" />
+        <rect x="6" y="2" width="4" height="2" fill="#f472b6" />
+      </g>
+    )}
+    {id === 'crushed_pistachio' && (
+      <g>
+        <rect x="3" y="8" width="10" height="5" fill="#166534" />
+        <rect x="5" y="5" width="6" height="5" fill="#22c55e" />
+        <rect x="6" y="6" width="4" height="3" fill="#86efac" />
+      </g>
+    )}
+    {id === 'crisp_wafer' && (
+      <g>
+        <rect x="3" y="4" width="10" height="8" fill="#78350f" />
+        <rect x="4" y="5" width="8" height="6" fill="#f59e0b" />
+        <rect x="5" y="7" width="6" height="1" fill="#b45309" />
+        <rect x="7" y="5" width="1" height="6" fill="#b45309" />
+      </g>
+    )}
+  </svg>
+);

@@ -3,19 +3,46 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BREAD_ORDER, BREAD_RECIPES, CUSTOMER_TYPES } from './data';
+import {
+  BREAD_ORDER,
+  BREAD_RECIPES,
+  CUSTOMER_TYPES,
+  EXTRA_ITEMS,
+  EXTRA_ORDER,
+  OVENS,
+  SHAPES,
+} from './data';
+import {
+  FA_BREAD_NAMES,
+  FA_CUSTOMER_DIALOGUES,
+  FA_INGREDIENTS,
+  FA_LOGIC_TEXT,
+  FA_OVENS,
+  FA_SHAPES,
+  Language,
+} from './i18n';
 import {
   BakedBreadItem,
   BreadId,
   BreadOutcomeQuality,
   BreadShapeId,
   CustomerTypeDef,
+  ExtraItemId,
   IngredientId,
   OrderTicket,
   OvenTypeId,
+  TicketExtraItem,
   TicketLineItem,
   TicketModifier,
 } from './types';
+
+/**
+ * Return teas & desserts unlocked for the current shift day (none on Day 1 so tutorial stays focused)
+ */
+export function getUnlockedExtras(day: number): ExtraItemId[] {
+  if (day < 2) return [];
+  return EXTRA_ORDER.filter((id) => EXTRA_ITEMS[id].unlockDay <= day);
+}
 
 /**
  * Return breads unlocked by current day AND reputation level / persistent rare unlocks
@@ -41,7 +68,6 @@ export function pickDailySpecial(
   day: number,
   unlocked: BreadId[]
 ): { breadId: BreadId; multiplier: number } {
-  // Rank unlocked breads by difficulty (ingredient count + recipe complexity + rare tier)
   const scored = unlocked.map((id) => {
     const rec = BREAD_RECIPES[id];
     const rareBonus = rec.unlockReputation ? 8 : 0;
@@ -58,7 +84,6 @@ export function pickDailySpecial(
   });
 
   scored.sort((a, b) => b.score - a.score);
-  // Pick among the top 2 hardest unlocked breads so each day stays challenging yet varied
   const topPool = scored.slice(0, Math.min(2, scored.length));
   const picked = topPool[(day - 1) % topPool.length] || scored[0];
   const multiplier = picked.isRare ? 2.5 : day === 1 ? 1.75 : 2.0;
@@ -75,10 +100,11 @@ export function evaluateBakedBread(params: {
   rested: boolean;
   shape: BreadShapeId;
   oven: OvenTypeId;
-  bakeRatio: number; // elapsed / ((min+max)/2), where ~0.72-1.22 is golden, <0.65 raw, >1.30 burnt
+  bakeRatio: number;
   targetMin: number;
   targetMax: number;
   elapsed: number;
+  lang?: Language;
 }): {
   matchedRecipeId: BreadId | null;
   outcome: BreadOutcomeQuality;
@@ -87,14 +113,25 @@ export function evaluateBakedBread(params: {
   hasNigella: boolean;
   isWellDone: boolean;
 } {
-  const { ingredients, kneadQuality, rested, shape, oven, targetMin, targetMax, elapsed } = params;
+  const {
+    ingredients,
+    kneadQuality,
+    rested,
+    shape,
+    oven,
+    targetMin,
+    targetMax,
+    elapsed,
+    lang = 'en',
+  } = params;
+  const L = FA_LOGIC_TEXT[lang];
+  const isFa = lang === 'fa';
   const issues: string[] = [];
 
   const uniqueIngs = Array.from(new Set(ingredients));
   const hasSesame = uniqueIngs.includes('sesame');
   const hasNigella = uniqueIngs.includes('nigella');
 
-  // Identify closest recipe by ingredient + shape similarity
   let bestRecipeId: BreadId | null = null;
   let bestScore = -999;
 
@@ -102,7 +139,6 @@ export function evaluateBakedBread(params: {
     const rec = BREAD_RECIPES[id];
     let score = 0;
 
-    // Ingredient overlap (ignoring optional toppings sesame/nigella/salt nuances first)
     for (const ing of rec.ingredients) {
       if (uniqueIngs.includes(ing)) score += 3;
       else if (ing !== 'salt' && ing !== 'sesame') score -= 3;
@@ -124,7 +160,6 @@ export function evaluateBakedBread(params: {
 
   const recipe = bestRecipeId ? BREAD_RECIPES[bestRecipeId] : BREAD_RECIPES.sangak;
 
-  // Determine bake status relative to matched recipe (or active target)
   const minT = bestRecipeId ? recipe.bakeMinSeconds : targetMin;
   const maxT = bestRecipeId ? recipe.bakeMaxSeconds : targetMax;
   const midT = (minT + maxT) / 2;
@@ -133,7 +168,6 @@ export function evaluateBakedBread(params: {
   const isBurnt = elapsed > maxT * 1.1;
   const isWellDone = !isBurnt && elapsed >= midT + (maxT - minT) * 0.2;
 
-  // Check ingredient defects against the closest recipe
   const missingCore = recipe.ingredients.filter(
     (ing) => ing !== 'salt' && ing !== 'sesame' && !uniqueIngs.includes(ing)
   );
@@ -141,25 +175,36 @@ export function evaluateBakedBread(params: {
     (ing) => !recipe.ingredients.includes(ing) && ing !== 'sesame' && ing !== 'nigella'
   );
 
-  // Salty mistake: added salt when recipe doesn't take salt, OR added salt+sugar weirdly
   const addedSugarOnSavory = uniqueIngs.includes('sugar') && !recipe.ingredients.includes('sugar');
   const addedSaltOnSweet = uniqueIngs.includes('salt') && !recipe.ingredients.includes('salt');
 
-  if (isBurnt) issues.push('Burnt black crust!');
-  if (isRaw) issues.push('Raw dough inside!');
-  if (!rested) issues.push('Dense & hard (skipped rest)');
-  if (kneadQuality === 'under') issues.push('Lumpy & under-kneaded');
-  if (kneadQuality === 'over') issues.push('Tough & over-kneaded');
-  if (recipe.shape !== shape) issues.push(`Wrong shape (${recipe.shape.replace('_', ' ')})`);
-  if (recipe.oven !== oven) issues.push(`Wrong oven (needs ${recipe.oven === 'tandoor' ? 'Tandoor' : 'Brick Oven'})`);
-  if (missingCore.length > 0) issues.push(`Missing ${missingCore.join(', ')}`);
-  if (addedSugarOnSavory) issues.push('Too sweet for savory bread!');
-  if (addedSaltOnSweet) issues.push('Too salty for sweet bread!');
+  const formatIngs = (list: IngredientId[]) =>
+    list
+      .map((ing) => (isFa ? FA_INGREDIENTS[ing]?.shortName || ing : ing))
+      .join(isFa ? '، ' : ', ');
+
+  const shapeLabel = isFa
+    ? FA_SHAPES[recipe.shape]?.name || recipe.shape
+    : SHAPES.find((s) => s.id === recipe.shape)?.name || recipe.shape.replace('_', ' ');
+
+  const ovenLabel = isFa
+    ? FA_OVENS[recipe.oven]?.name || recipe.oven
+    : OVENS.find((o) => o.id === recipe.oven)?.name || recipe.oven;
+
+  if (isBurnt) issues.push(L.burntCrust);
+  if (isRaw) issues.push(L.rawInside);
+  if (!rested) issues.push(L.denseSkipped);
+  if (kneadQuality === 'under') issues.push(L.underKneaded);
+  if (kneadQuality === 'over') issues.push(L.overKneaded);
+  if (recipe.shape !== shape) issues.push(L.wrongShape(shapeLabel));
+  if (recipe.oven !== oven) issues.push(L.wrongOven(ovenLabel));
+  if (missingCore.length > 0) issues.push(L.missingIngs(formatIngs(missingCore)));
+  if (addedSugarOnSavory) issues.push(L.tooSweet);
+  if (addedSaltOnSweet) issues.push(L.tooSalty);
   if (extraNonTopping.length > 0 && !addedSugarOnSavory && !addedSaltOnSweet) {
-    issues.push(`Extra ${extraNonTopping.join(', ')}`);
+    issues.push(L.extraIngs(formatIngs(extraNonTopping)));
   }
 
-  // Decide dominant visual/taste outcome
   let outcome: BreadOutcomeQuality = 'perfect';
   if (isBurnt) outcome = 'burnt';
   else if (isRaw) outcome = 'raw';
@@ -184,66 +229,143 @@ export function evaluateBakedBread(params: {
 }
 
 /**
+ * Recompute localized issue strings for an already-baked loaf (supports live language switch)
+ */
+export function getLocalizedLoafIssue(loaf: BakedBreadItem, lang: Language): string {
+  const L = FA_LOGIC_TEXT[lang];
+  const isFa = lang === 'fa';
+  if (loaf.outcome === 'burnt') return L.burntCrust;
+  if (loaf.outcome === 'raw') return L.rawInside;
+  if (!loaf.rested || loaf.outcome === 'dense') return L.denseSkipped;
+
+  const recipe = loaf.matchedRecipeId ? BREAD_RECIPES[loaf.matchedRecipeId] : null;
+  if (recipe) {
+    const uniqueIngs = Array.from(new Set(loaf.ingredients));
+    const missingCore = recipe.ingredients.filter(
+      (ing) => ing !== 'salt' && ing !== 'sesame' && !uniqueIngs.includes(ing)
+    );
+    const addedSugarOnSavory = uniqueIngs.includes('sugar') && !recipe.ingredients.includes('sugar');
+    const addedSaltOnSweet = uniqueIngs.includes('salt') && !recipe.ingredients.includes('salt');
+    const extraNonTopping = uniqueIngs.filter(
+      (ing) => !recipe.ingredients.includes(ing) && ing !== 'sesame' && ing !== 'nigella'
+    );
+    const formatIngs = (list: IngredientId[]) =>
+      list
+        .map((ing) => (isFa ? FA_INGREDIENTS[ing]?.shortName || ing : ing))
+        .join(isFa ? '، ' : ', ');
+
+    if (loaf.kneadQuality === 'under') return L.underKneaded;
+    if (loaf.kneadQuality === 'over') return L.overKneaded;
+    if (recipe.shape !== loaf.shape) {
+      const shapeLabel = isFa
+        ? FA_SHAPES[recipe.shape]?.name || recipe.shape
+        : SHAPES.find((s) => s.id === recipe.shape)?.name || recipe.shape.replace('_', ' ');
+      return L.wrongShape(shapeLabel);
+    }
+    if (recipe.oven !== loaf.oven) {
+      const ovenLabel = isFa
+        ? FA_OVENS[recipe.oven]?.name || recipe.oven
+        : OVENS.find((o) => o.id === recipe.oven)?.name || recipe.oven;
+      return L.wrongOven(ovenLabel);
+    }
+    if (missingCore.length > 0) return L.missingIngs(formatIngs(missingCore));
+    if (addedSugarOnSavory) return L.tooSweet;
+    if (addedSaltOnSweet) return L.tooSalty;
+    if (extraNonTopping.length > 0) return L.extraIngs(formatIngs(extraNonTopping));
+  }
+
+  return loaf.issues[0] || loaf.outcome;
+}
+
+/**
  * Evaluate a finished baked bread against a specific TicketLineItem
  */
 export function evaluateAgainstTicketItem(
   bread: BakedBreadItem,
-  line: TicketLineItem
+  line: TicketLineItem,
+  lang: Language = 'en'
 ): {
   accepted: boolean;
   perfect: boolean;
-  scoreFactor: number; // 1.0 = full price+tip, 0.5 = flawed accepted, 0 = ruined/rejected
+  scoreFactor: number;
   feedback: string;
+  defectType?: 'salt' | 'shape' | 'dense' | 'other';
 } {
   const recipe = BREAD_RECIPES[line.breadId];
+  const L = FA_LOGIC_TEXT[lang];
+  const breadDisplayName = lang === 'fa' ? FA_BREAD_NAMES[line.breadId]?.name || recipe.name : recipe.name;
 
-  // Check if bread physically failed badly
   if (bread.outcome === 'burnt') {
-    return { accepted: false, perfect: false, scoreFactor: 0, feedback: 'Charred black! Customer refused it.' };
+    return { accepted: false, perfect: false, scoreFactor: 0, feedback: L.refusedBurnt };
   }
   if (bread.outcome === 'raw') {
-    return { accepted: false, perfect: false, scoreFactor: 0, feedback: 'Still raw dough! Customer refused it.' };
+    return { accepted: false, perfect: false, scoreFactor: 0, feedback: L.refusedRaw };
   }
 
-  // Check if wrong bread type altogether
   if (bread.matchedRecipeId !== line.breadId) {
     return {
       accepted: false,
       perfect: false,
       scoreFactor: 0,
-      feedback: `Wrong bread! Ordered ${recipe.name}.`,
+      feedback: L.wrongBread(breadDisplayName),
     };
   }
 
   const problems: string[] = [];
+  let severeMistake = false;
+  let defectType: 'salt' | 'shape' | 'dense' | 'other' | undefined;
 
-  // Check modifier rules!
   const hasSalt = bread.ingredients.includes('salt');
   if (line.modifier === 'no_salt' && hasSalt) {
-    problems.push('Put salt in a NO SALT order!');
+    problems.push(L.saltInNoSalt);
+    severeMistake = true;
+    defectType = 'salt';
   } else if (line.modifier !== 'no_salt' && recipe.ingredients.includes('salt') && !hasSalt) {
-    problems.push('Forgot the salt (bland)!');
+    problems.push(L.forgotSalt);
+    defectType = defectType || 'salt';
   }
 
   if (line.modifier === 'extra_sesame' && !bread.hasSesame) {
-    problems.push('Missing EXTRA SESAME!');
+    problems.push(L.missingExtraSesame);
+    defectType = defectType || 'other';
   } else if (recipe.ingredients.includes('sesame') && !bread.hasSesame) {
-    problems.push('Forgot sesame topping!');
+    problems.push(L.forgotSesame);
+    defectType = defectType || 'other';
   }
 
   if (line.modifier === 'add_nigella' && !bread.hasNigella) {
-    problems.push('Missing NIGELLA SEEDS!');
+    problems.push(L.missingNigella);
+    defectType = defectType || 'other';
   }
 
   if (line.modifier === 'well_done' && !bread.isWellDone) {
-    problems.push('Not baked WELL DONE enough!');
+    problems.push(L.notWellDone);
+    defectType = defectType || 'other';
   }
 
-  if (!bread.rested) problems.push('Dense & heavy (skipped rest)');
-  if (bread.shape !== recipe.shape) problems.push('Wrong shape!');
-  if (bread.oven !== recipe.oven) problems.push('Wrong oven!');
-  if (bread.kneadQuality !== 'perfect') problems.push(`${bread.kneadQuality}-kneaded`);
+  if (!bread.rested) {
+    problems.push(L.denseSkipped);
+    severeMistake = true;
+    defectType = defectType || 'dense';
+  }
+  if (bread.shape !== recipe.shape) {
+    problems.push(L.wrongShapeShort);
+    severeMistake = true;
+    defectType = defectType || 'shape';
+  }
+  if (bread.oven !== recipe.oven) {
+    problems.push(L.wrongOvenShort);
+    defectType = defectType || 'other';
+  }
+  if (bread.kneadQuality !== 'perfect') {
+    problems.push(bread.kneadQuality === 'over' ? L.overKneadedShort : L.underKneadedShort);
+    defectType = defectType || 'other';
+  }
   if (bread.outcome === 'salty' || bread.outcome === 'sweet_error' || bread.outcome === 'wrong_ingredients') {
+    if (bread.outcome === 'salty' || bread.outcome === 'sweet_error') {
+      severeMistake = true;
+    }
+    if (bread.outcome === 'salty') defectType = defectType || 'salt';
     problems.push(...bread.issues);
   }
 
@@ -252,19 +374,16 @@ export function evaluateAgainstTicketItem(
       accepted: true,
       perfect: true,
       scoreFactor: 1.0,
-      feedback: `Perfect ${recipe.name}!`,
+      feedback: L.perfectItem(breadDisplayName),
     };
   }
-
-  // Minor flaws (like missing sesame or under-kneaded or wrong oven) still pass with partial pay, major taste/shape mistakes anger customer
-  const severeMistake =
-    problems.some((p) => p.includes('SALT') || p.includes('Wrong shape') || p.includes('Dense') || p.includes('sweet'));
 
   return {
     accepted: true,
     perfect: false,
     scoreFactor: severeMistake ? 0.25 : 0.65,
     feedback: problems[0],
+    defectType,
   };
 }
 
@@ -276,13 +395,15 @@ export function generateDayTickets(
   patienceLevel: number,
   dailySpecialBreadId?: BreadId,
   reputation: number = 0,
-  unlockedRareBreads: BreadId[] = []
+  unlockedRareBreads: BreadId[] = [],
+  lang: Language = 'en'
 ): OrderTicket[] {
+  const L = FA_LOGIC_TEXT[lang];
+  const isFa = lang === 'fa';
   const unlocked = getUnlockedBreads(day, reputation, unlockedRareBreads);
-  const customerCount = Math.min(8, 3 + day); // Day 1: 4 customers, Day 2: 5, Day 3: 6...
+  const customerCount = Math.min(8, 3 + day);
   const tickets: OrderTicket[] = [];
 
-  // Choose 1-2 customer indices (never Day 1 #1 tutorial) that request the Daily Special!
   const specialTicketIndices = new Set<number>();
   if (dailySpecialBreadId && unlocked.includes(dailySpecialBreadId)) {
     const minIdx = day === 1 ? 1 : 0;
@@ -294,14 +415,12 @@ export function generateDayTickets(
   }
 
   for (let i = 0; i < customerCount; i++) {
-    // Pick customer weighted nicely
     const custPool =
       day === 1
         ? CUSTOMER_TYPES.filter((c) => c.id !== 'critic')
         : CUSTOMER_TYPES;
     const customer: CustomerTypeDef = custPool[Math.floor(Math.random() * custPool.length)];
 
-    // Number of distinct items in order
     let lineCount = 1;
     if (day === 2 && i >= 2) lineCount = 2;
     else if (day >= 3 && Math.random() < 0.7) lineCount = 2;
@@ -311,7 +430,7 @@ export function generateDayTickets(
     if (day === 1 && i === 0) {
       tickets.push({
         id: `t_${day}_${i}_${Date.now()}`,
-        customer: CUSTOMER_TYPES[3], // Cheerful Nima
+        customer: CUSTOMER_TYPES[3],
         items: [
           {
             uid: `li_${i}_0`,
@@ -325,7 +444,8 @@ export function generateDayTickets(
         patienceLeft: 95,
         ticketNumber: i + 1,
         expression: 'happy',
-        reactionMessage: 'One hot Sangak please! Use the Stone Tandoor!',
+        reactionMessage: L.tutorialGreeting,
+        greetingIndex: -1,
       });
       continue;
     }
@@ -342,7 +462,6 @@ export function generateDayTickets(
         breadId = dailySpecialBreadId;
         isDailySpecialLine = true;
       } else {
-        // Pick from unlocked breads, slightly favoring customer's favorites
         const favUnlocked = customer.favorites.filter((b) => unlocked.includes(b) && !usedBreads.has(b));
         const avail = unlocked.filter((b) => !usedBreads.has(b));
         const pool = favUnlocked.length > 0 && Math.random() < 0.65 ? favUnlocked : avail;
@@ -351,38 +470,42 @@ export function generateDayTickets(
       }
       usedBreads.add(breadId);
 
-      // Quantity (occasionally 2x on Day 2+)
       const qty = day >= 2 && lineCount === 1 && Math.random() < 0.4 ? 2 : 1;
 
-      // Tricky Modifiers (from Day 2+, or last customer of Day 1)
       let modifier: TicketModifier = 'none';
       const modChance = day === 1 ? (i >= 2 ? 0.25 : 0) : Math.min(0.65, 0.25 + day * 0.1);
       if (Math.random() < modChance) {
-        const mods: TicketModifier[] = ['no_salt', 'extra_sesame', 'add_nigella', 'well_done'];
-        // Avoid extra_sesame on sweet dessert puff
-        const filteredMods =
-          breadId === 'nane_khamei' || breadId === 'croissant'
-            ? (['well_done'] as TicketModifier[])
-            : mods;
+        const hasSalt = BREAD_RECIPES[breadId].ingredients.includes('salt');
+        const isPastry =
+          breadId === 'nane_khamei' || breadId === 'croissant' || breadId === 'baklava_roll';
+        const filteredMods: TicketModifier[] = isPastry
+          ? ['well_done']
+          : hasSalt
+          ? ['no_salt', 'extra_sesame', 'add_nigella', 'well_done']
+          : ['extra_sesame', 'add_nigella', 'well_done'];
         modifier = filteredMods[Math.floor(Math.random() * filteredMods.length)];
       }
 
-      // Crossed out decoy / handwritten margin note on tricky orders (Day 2+)
+      let crossedOutBreadId: BreadId | undefined;
       let crossedOutText: string | undefined;
+      let marginModifier: TicketModifier | undefined;
       let marginNote: string | undefined;
       if (day >= 2 && j === 0 && Math.random() < 0.35) {
         const decoyId = unlocked.find((b) => b !== breadId) || 'white_loaf';
-        crossedOutText = `1x ${BREAD_RECIPES[decoyId].name}`;
+        crossedOutBreadId = decoyId;
+        const decoyName = isFa ? FA_BREAD_NAMES[decoyId]?.name || BREAD_RECIPES[decoyId].name : BREAD_RECIPES[decoyId].name;
+        crossedOutText = `1x ${decoyName}`;
       }
       if (day >= 2 && modifier !== 'none' && Math.random() < 0.45) {
+        marginModifier = modifier;
         marginNote =
           modifier === 'no_salt'
-            ? 'Doctor says zero salt!'
+            ? L.marginNoSalt
             : modifier === 'extra_sesame'
-            ? 'Pile on sesame!'
+            ? L.marginExtraSesame
             : modifier === 'add_nigella'
-            ? 'Sprinkle nigella!'
-            : 'Leave longer in oven!';
+            ? L.marginAddNigella
+            : L.marginWellDone;
       }
 
       lines.push({
@@ -392,25 +515,48 @@ export function generateDayTickets(
         servedQty: 0,
         modifier,
         isDailySpecial: isDailySpecialLine,
+        crossedOutBreadId,
         crossedOutText,
+        marginModifier,
         marginNote,
       });
     }
 
-    // Patience boosted by Copper Wind Chime upgrade
+    const unlockedExtras = getUnlockedExtras(day);
+    const extras: TicketExtraItem[] = [];
+    if (unlockedExtras.length > 0 && Math.random() < 0.5) {
+      const pickedExtra = unlockedExtras[Math.floor(Math.random() * unlockedExtras.length)];
+      extras.push({
+        uid: `ex_${i}_0`,
+        extraId: pickedExtra,
+        qty: 1,
+        servedQty: 0,
+      });
+    }
+
     const patienceBonus = 1 + patienceLevel * 0.2;
     const itemCountFactor = 1 + (lines.reduce((s, l) => s + l.qty, 0) - 1) * 0.42;
-    const totalPatience = Math.round(customer.patienceSeconds * patienceBonus * itemCountFactor);
+    const extraPatienceSeconds = extras.length > 0 ? 8 : 0;
+    const totalPatience = Math.round(
+      customer.patienceSeconds * patienceBonus * itemCountFactor + extraPatienceSeconds
+    );
+
+    const greetingPool = isFa
+      ? FA_CUSTOMER_DIALOGUES[customer.id]?.bakery || customer.greetings
+      : customer.greetings;
+    const greetingIndex = Math.floor(Math.random() * greetingPool.length);
 
     tickets.push({
       id: `t_${day}_${i}_${Math.random().toString(36).slice(2, 6)}`,
       customer,
       items: lines,
+      extras: extras.length > 0 ? extras : undefined,
       patienceMax: totalPatience,
       patienceLeft: totalPatience,
       ticketNumber: i + 1,
       expression: 'waiting',
-      reactionMessage: customer.greetings[Math.floor(Math.random() * customer.greetings.length)],
+      reactionMessage: greetingPool[greetingIndex],
+      greetingIndex,
     });
   }
 

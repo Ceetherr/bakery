@@ -20,7 +20,8 @@ export type BreadShapeId =
   | 'round'
   | 'long_baguette'
   | 'thin_sheet'
-  | 'crescent';
+  | 'crescent'
+  | 'braided_twist';
 
 export type OvenTypeId = 'tandoor' | 'brick_oven';
 
@@ -30,13 +31,54 @@ export type BreadId =
   | 'white_loaf'
   | 'taftoon'
   | 'lavash'
+  | 'shirmal'
   | 'pita'
   | 'baguette'
+  | 'focaccia'
+  | 'simit'
   | 'croissant'
   | 'nane_khamei'
+  | 'sourdough'
+  | 'komaj'
+  | 'pretzel'
   | 'saffron_barbari'
   | 'baklava_roll'
   | 'royal_brioche';
+
+export type ExtraItemCategory = 'beverage' | 'dessert';
+
+export type ExtraIngredientId =
+  | 'hot_water'
+  | 'tea_leaves'
+  | 'coffee_grounds'
+  | 'milk_cream'
+  | 'saffron'
+  | 'cardamom'
+  | 'mint'
+  | 'rose'
+  | 'cinnamon_pistachio'
+  | 'rose_syrup'
+  | 'crushed_pistachio'
+  | 'crisp_wafer';
+
+export interface ExtraIngredientDef {
+  id: ExtraIngredientId;
+  name: string;
+  shortName: string;
+  forCategory: ExtraItemCategory;
+}
+
+export type ExtraItemId =
+  | 'persian_tea'
+  | 'saffron_tea'
+  | 'karak_tea'
+  | 'mint_tea'
+  | 'rose_tea'
+  | 'persian_coffee'
+  | 'saffron_pudding'
+  | 'zoolbia_bamieh'
+  | 'baklava_plate'
+  | 'bastani_sonnati';
 
 export type CustomerTypeId =
   | 'old_man'
@@ -115,6 +157,8 @@ export interface BreadRecipe {
   difficulty: 'Standard' | 'Hard' | 'Master' | 'Rare';
   description: string;
   ingredients: IngredientId[];
+  kneadTarget: number;
+  kneadSpeed: number;
   restSeconds: number;
   shape: BreadShapeId;
   oven: OvenTypeId;
@@ -148,19 +192,61 @@ export interface TicketLineItem {
   modifier: TicketModifier;
   isDailySpecial?: boolean;
   crossedOut?: boolean;
+  crossedOutBreadId?: BreadId;
   crossedOutText?: string;
+  marginModifier?: TicketModifier;
   marginNote?: string;
+}
+
+export interface ExtraItemDef {
+  id: ExtraItemId;
+  category: ExtraItemCategory;
+  subKind: 'tea' | 'coffee' | 'dessert';
+  name: string;
+  description: string;
+  unlockDay: number;
+  prepSeconds: number;
+  price: number;
+  ingredients: ExtraIngredientId[];
+}
+
+export interface TicketExtraItem {
+  uid: string;
+  extraId: ExtraItemId;
+  qty: number;
+  servedQty: number;
+}
+
+export interface ActiveExtraPrep {
+  id: string;
+  extraId: ExtraItemId;
+  category: ExtraItemCategory;
+  progressSeconds: number;
+  targetSeconds: number;
+  overboilSeconds: number;
+  flameMode: 'high' | 'simmer';
+  overboiled: boolean;
+  stirsDone: number;
+  targetStirs: number;
+}
+
+export interface ReadyExtraItem {
+  id: string;
+  extraId: ExtraItemId;
+  category: ExtraItemCategory;
 }
 
 export interface OrderTicket {
   id: string;
   customer: CustomerTypeDef;
   items: TicketLineItem[];
+  extras?: TicketExtraItem[];
   patienceMax: number;
   patienceLeft: number;
   ticketNumber: number;
   expression: CustomerExpression;
   reactionMessage: string;
+  greetingIndex?: number;
   dialogueTopic?: 'greeting' | 'bakery' | 'weather' | 'bread';
 }
 
@@ -210,6 +296,7 @@ export type UpgradeId =
   | 'extra_dough_slot'
   | 'kneading_board'
   | 'soothing_chime'
+  | 'samovar_heater'
   | 'decor_plants'
   | 'decor_rug'
   | 'decor_neon'
@@ -243,6 +330,7 @@ export interface DaySummary {
   dailySpecialMultiplier: number;
   ordersCompleted: number;
   perfectBreads: number;
+  extrasServed?: number;
   mistakes: number;
   walkouts: number;
   reputationChange: number;
@@ -257,6 +345,7 @@ export interface BakerySaveData {
   bestScore: number;
   reputation: number;
   totalBreadsBaked: number;
+  totalExtrasServed?: number;
   sangakPerfectCount: number;
   catShoos: number;
   unlockedRareBreads: BreadId[];
@@ -264,4 +353,5 @@ export interface BakerySaveData {
   achievements: string[];
   tutorialSeen: boolean;
   bakerLook: BakerLookConfig;
+  lang: 'en' | 'fa';
 }
